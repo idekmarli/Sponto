@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
 import { useCurrency } from '../src/currency';
 import { api } from '../src/api';
+import { ImageCropper } from '../src/components/ImageCropper';
 
 // ─── Types ───
 interface ExtractedField {
@@ -170,6 +171,10 @@ export default function AddFromScreenshotScreen() {
 
   // Confidence levels
   const [confidences, setConfidences] = useState<Record<string, string>>({});
+  
+  // Cropper state
+  const [showCropper, setShowCropper] = useState(false);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
 
   // Pick images
   const pickImages = async () => {
@@ -249,6 +254,9 @@ export default function AddFromScreenshotScreen() {
     setSaving(true);
 
     try {
+      // Use cropped image if available, otherwise use first selected image
+      const photoToSave = croppedImage || selectedImages[0];
+      
       const itemData = {
         title: title.trim() || 'Untitled Item',
         brand: brand.trim(),
@@ -261,7 +269,7 @@ export default function AddFromScreenshotScreen() {
         status: 'sourced',
         date_acquired: new Date().toISOString().split('T')[0],
         notes: notes.trim() + (color ? `\nColor: ${color}` : '') + `\n\n[Extracted from screenshot]`,
-        photos: selectedImages.slice(0, 1), // Keep first screenshot as reference
+        photos: photoToSave ? [photoToSave] : [],
         is_draft: false,
       };
 
@@ -335,6 +343,13 @@ export default function AddFromScreenshotScreen() {
     setColor('');
     setPurchasePrice('');
     setNotes('');
+    setCroppedImage(null);
+  };
+  
+  // Handle cropped image
+  const handleCrop = (croppedUri: string) => {
+    setCroppedImage(croppedUri);
+    setShowCropper(false);
   };
 
   // ─── Render Upload State ───
@@ -383,10 +398,14 @@ export default function AddFromScreenshotScreen() {
   // ─── Render Review State ───
   const renderReviewState = () => (
     <ScrollView style={styles.reviewScroll} showsVerticalScrollIndicator={false}>
-      {/* Screenshot Preview */}
+      {/* Screenshot/Cropped Image Preview */}
       {selectedImages[0] && (
         <View style={styles.screenshotPreview}>
-          <Image source={{ uri: selectedImages[0] }} style={styles.screenshotImage} resizeMode="cover" />
+          <Image 
+            source={{ uri: croppedImage || selectedImages[0] }} 
+            style={styles.screenshotImage} 
+            resizeMode="cover" 
+          />
           <View style={styles.screenshotOverlay}>
             {detectedPlatform && (
               <View style={styles.detectedPlatformBadge}>
@@ -394,10 +413,24 @@ export default function AddFromScreenshotScreen() {
                 <Text style={styles.detectedPlatformText}>Detected: {detectedPlatform}</Text>
               </View>
             )}
-            <TouchableOpacity style={styles.changeImageBtn} onPress={reset}>
-              <Feather name="refresh-cw" size={14} color={colors.textInverse} />
-              <Text style={styles.changeImageText}>Change</Text>
-            </TouchableOpacity>
+            <View style={styles.imageActions}>
+              {!croppedImage && (
+                <TouchableOpacity style={styles.cropImageBtn} onPress={() => setShowCropper(true)}>
+                  <Feather name="crop" size={14} color={colors.textInverse} />
+                  <Text style={styles.cropImageText}>Crop</Text>
+                </TouchableOpacity>
+              )}
+              {croppedImage && (
+                <View style={styles.croppedBadge}>
+                  <Feather name="check" size={12} color={colors.success} />
+                  <Text style={styles.croppedBadgeText}>Cropped</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.changeImageBtn} onPress={reset}>
+                <Feather name="refresh-cw" size={14} color={colors.textInverse} />
+                <Text style={styles.changeImageText}>Change</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -581,6 +614,16 @@ export default function AddFromScreenshotScreen() {
               )}
             </TouchableOpacity>
           </View>
+        )}
+        
+        {/* Image Cropper Modal */}
+        {selectedImages[0] && (
+          <ImageCropper
+            visible={showCropper}
+            imageUri={selectedImages[0]}
+            onClose={() => setShowCropper(false)}
+            onCrop={handleCrop}
+          />
         )}
       </View>
     </KeyboardAvoidingView>
@@ -806,6 +849,39 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.xs,
     color: colors.textInverse,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  cropImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    backgroundColor: colors.brand,
+    paddingHorizontal: space[2] + 2,
+    paddingVertical: space[1] + 2,
+    borderRadius: radius.sm,
+  },
+  cropImageText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textInverse,
+  },
+  croppedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    backgroundColor: colors.successLight,
+    paddingHorizontal: space[2],
+    paddingVertical: space[1],
+    borderRadius: radius.sm,
+  },
+  croppedBadgeText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.success,
   },
   changeImageBtn: {
     flexDirection: 'row',
