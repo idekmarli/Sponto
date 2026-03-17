@@ -9,6 +9,7 @@ import { useCurrency } from '../../src/currency';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
 import { EmptyState } from '../../src/components/UI';
+import { DeleteConfirmModal } from '../../src/components/DeleteConfirmModal';
 
 const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
 const TAG_FILTERS = ['stale', 'dead_stock', 'incomplete', 'needs_cleanup', 'margin_risk'];
@@ -30,7 +31,7 @@ function TagChip({ tagKey, isDerived = false }: { tagKey: string; isDerived?: bo
 }
 
 // Item Card Component - Photo-first, scannable
-function ItemCard({ item, onPress, onLongPress, onQuickSold, formatAmount, currencySymbol, isSelected, selectionMode }: { 
+function ItemCard({ item, onPress, onLongPress, onQuickSold, formatAmount, currencySymbol, isSelected, selectionMode, avgDaysToSell }: { 
   item: any; 
   onPress: () => void; 
   onLongPress?: () => void;
@@ -39,6 +40,7 @@ function ItemCard({ item, onPress, onLongPress, onQuickSold, formatAmount, curre
   currencySymbol: string;
   isSelected?: boolean;
   selectionMode?: boolean;
+  avgDaysToSell?: number;
 }) {
   const statusCfg = statusConfig[item.status] || statusConfig.sourced;
   const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
@@ -123,10 +125,38 @@ function ItemCard({ item, onPress, onLongPress, onQuickSold, formatAmount, curre
           </View>
           <View style={styles.priceRight}>
             {!isSold && item.days_listed != null && item.days_listed > 0 && (
-              <Text style={styles.daysText}>{item.days_listed}d</Text>
+              <View style={[
+                styles.daysChip,
+                avgDaysToSell && item.days_listed > avgDaysToSell * 1.5 
+                  ? styles.daysChipDanger 
+                  : avgDaysToSell && item.days_listed > avgDaysToSell 
+                    ? styles.daysChipWarning 
+                    : styles.daysChipNormal
+              ]}>
+                <Text style={[
+                  styles.daysChipText,
+                  avgDaysToSell && item.days_listed > avgDaysToSell * 1.5 
+                    ? styles.daysChipTextDanger 
+                    : avgDaysToSell && item.days_listed > avgDaysToSell 
+                      ? styles.daysChipTextWarning 
+                      : styles.daysChipTextNormal
+                ]}>{item.days_listed}d</Text>
+              </View>
             )}
             {isSold && item.days_to_sell != null && (
-              <Text style={styles.daysText}>{item.days_to_sell}d</Text>
+              <View style={[
+                styles.daysChip,
+                avgDaysToSell && item.days_to_sell < avgDaysToSell * 0.75 
+                  ? styles.daysChipSuccess 
+                  : styles.daysChipNormal
+              ]}>
+                <Text style={[
+                  styles.daysChipText,
+                  avgDaysToSell && item.days_to_sell < avgDaysToSell * 0.75 
+                    ? styles.daysChipTextSuccess 
+                    : styles.daysChipTextNormal
+                ]}>{item.days_to_sell}d</Text>
+              </View>
             )}
             {isListed && (
               <TouchableOpacity
@@ -168,6 +198,11 @@ export default function InventoryScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Average days to sell for color-coding
+  const [avgDaysToSell, setAvgDaysToSell] = useState<number>(0);
   
   // Count active filters
   const activeFilterCount = [tagFilter, platformFilter].filter(Boolean).length;
@@ -176,7 +211,17 @@ export default function InventoryScreen() {
     try {
       const params: any = {};
       if (filter !== 'All') params.status = filter.toLowerCase();
-      const allItems = await api.getItems(params);
+      
+      // Fetch items and insights in parallel
+      const [allItems, insights] = await Promise.all([
+        api.getItems(params),
+        api.getInsights()
+      ]);
+      
+      // Set average days to sell for color-coding
+      if (insights?.avg_days_to_sell) {
+        setAvgDaysToSell(insights.avg_days_to_sell);
+      }
       
       // Apply client-side advanced filters
       let filtered = allItems;
@@ -266,6 +311,7 @@ export default function InventoryScreen() {
   };
 
   const handleBulkDelete = async () => {
+    setDeleteLoading(true);
     try {
       const ids = Array.from(selectedIds);
       await api.bulkDeleteItems(ids);
@@ -274,6 +320,9 @@ export default function InventoryScreen() {
       fetchItems();
     } catch (e) {
       setToast({ visible: true, message: 'Failed to delete items', type: 'error' });
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
     }
     setShowBulkActions(false);
   };
@@ -288,6 +337,7 @@ export default function InventoryScreen() {
       currencySymbol={currency.symbol}
       isSelected={selectedIds.has(item.id)}
       selectionMode={selectionMode}
+      avgDaysToSell={avgDaysToSell}
     />
   );
 
@@ -556,7 +606,7 @@ export default function InventoryScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.bulkActionBtn, styles.bulkActionBtnDanger]}
-              onPress={handleBulkDelete}
+              onPress={() => setShowDeleteConfirm(true)}
               activeOpacity={0.7}
             >
               <Feather name="trash-2" size={18} color={colors.error} />
@@ -600,6 +650,16 @@ export default function InventoryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        visible={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleBulkDelete}
+        title={selectedIds.size > 1 ? `Delete ${selectedIds.size} Items` : 'Delete Item'}
+        itemCount={selectedIds.size}
+        loading={deleteLoading}
+      />
     </>
   );
 }
@@ -837,6 +897,40 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontSize: fontSize.xs,
     color: colors.textTertiary,
+  },
+  // Days chip styles for color-coded display
+  daysChip: {
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  daysChipNormal: {
+    backgroundColor: colors.surfaceMuted,
+  },
+  daysChipWarning: {
+    backgroundColor: colors.warningLight,
+  },
+  daysChipDanger: {
+    backgroundColor: colors.errorLight,
+  },
+  daysChipSuccess: {
+    backgroundColor: colors.successLight,
+  },
+  daysChipText: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
+  },
+  daysChipTextNormal: {
+    color: colors.textTertiary,
+  },
+  daysChipTextWarning: {
+    color: colors.warning,
+  },
+  daysChipTextDanger: {
+    color: colors.error,
+  },
+  daysChipTextSuccess: {
+    color: colors.success,
   },
   quickSoldBtn: {
     width: 32,
