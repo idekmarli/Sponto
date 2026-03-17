@@ -22,15 +22,62 @@ const ACTION_CONFIG: Record<string, { icon: string; label: string }> = {
   'Archive or bundle': { icon: 'archive', label: 'Archive or bundle' },
 };
 
-// Dead Stock Item Card - Action-oriented
-function DeadStockItem({ item, bucket, onPress, formatAmount }: { 
+// Calculate repricing suggestion based on days listed
+function getRepricingSuggestion(item: any, bucketKey: string): { 
+  reduction: number; 
+  newPrice: number; 
+  stillProfitable: boolean;
+  profitAtNewPrice: number;
+} | null {
+  const currentPrice = item.listed_price || item.target_list_price || 0;
+  const costBasis = item.total_cost_basis || item.purchase_price || 0;
+  
+  if (!currentPrice || currentPrice <= 0) return null;
+  
+  // Calculate reduction percentage based on urgency
+  let reductionPercent = 0;
+  switch (bucketKey) {
+    case '90_plus':
+      reductionPercent = 25; // Critical - aggressive pricing
+      break;
+    case '60_90':
+      reductionPercent = 18; // High urgency
+      break;
+    case '45_60':
+      reductionPercent = 12; // Medium
+      break;
+    case '30_45':
+      reductionPercent = 8; // Watch - gentle nudge
+      break;
+    default:
+      reductionPercent = 10;
+  }
+  
+  const reduction = Math.round(currentPrice * (reductionPercent / 100));
+  const newPrice = currentPrice - reduction;
+  const profitAtNewPrice = newPrice - costBasis;
+  const stillProfitable = profitAtNewPrice > 0;
+  
+  return {
+    reduction,
+    newPrice,
+    stillProfitable,
+    profitAtNewPrice,
+  };
+}
+
+// Dead Stock Item Card - Action-oriented with repricing
+function DeadStockItem({ item, bucket, onPress, formatAmount, currencySymbol }: { 
   item: any; 
   bucket: typeof BUCKETS[0]; 
   onPress: () => void;
   formatAmount: (n: number) => string;
+  currencySymbol: string;
 }) {
   const potential = (item.target_list_price || 0) - (item.total_cost_basis || 0);
   const action = ACTION_CONFIG[item.suggested_action] || { icon: 'info', label: item.suggested_action };
+  const repricing = getRepricingSuggestion(item, bucket.key);
+  const currentPrice = item.listed_price || item.target_list_price || 0;
 
   return (
     <TouchableOpacity
@@ -63,6 +110,48 @@ function DeadStockItem({ item, bucket, onPress, formatAmount }: {
           <Text style={styles.potentialLabel}>potential</Text>
         </View>
       </View>
+
+      {/* Repricing Suggestion Card */}
+      {repricing && currentPrice > 0 && (
+        <View style={styles.repricingCard}>
+          <View style={styles.repricingHeader}>
+            <Feather name="tag" size={12} color={colors.brand} />
+            <Text style={styles.repricingTitle}>Suggested Price Drop</Text>
+          </View>
+          <View style={styles.repricingBody}>
+            <View style={styles.priceChange}>
+              <Text style={styles.currentPrice}>{currencySymbol}{currentPrice.toFixed(0)}</Text>
+              <Feather name="arrow-right" size={14} color={colors.textTertiary} />
+              <Text style={styles.newPrice}>{currencySymbol}{repricing.newPrice.toFixed(0)}</Text>
+              <View style={[
+                styles.savingsBadge,
+                { backgroundColor: bucket.color + '15' }
+              ]}>
+                <Text style={[styles.savingsText, { color: bucket.color }]}>
+                  -{Math.round((repricing.reduction / currentPrice) * 100)}%
+                </Text>
+              </View>
+            </View>
+            <View style={styles.profitIndicator}>
+              {repricing.stillProfitable ? (
+                <>
+                  <Feather name="check-circle" size={12} color={colors.success} />
+                  <Text style={styles.profitText}>
+                    Still profitable: +{currencySymbol}{repricing.profitAtNewPrice.toFixed(0)}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Feather name="alert-circle" size={12} color={colors.warning} />
+                  <Text style={[styles.profitText, { color: colors.warning }]}>
+                    Break-even or loss - consider bundling
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Action Suggestion - Action-oriented */}
       {item.suggested_action && (
@@ -113,7 +202,7 @@ function SummaryStats({ data, formatAmount }: { data: Record<string, any[]>; for
 export default function DeadStockScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, currency } = useCurrency();
   const [data, setData] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -223,6 +312,7 @@ export default function DeadStockScreen() {
                       bucket={bucket}
                       onPress={() => router.push(`/item/${item.id}`)}
                       formatAmount={formatAmount}
+                      currencySymbol={currency.symbol}
                     />
                   ))}
                 </View>
@@ -453,5 +543,66 @@ const styles = StyleSheet.create({
   },
   actionArrow: {
     marginLeft: 'auto',
+  },
+
+  // Repricing Card
+  repricingCard: {
+    backgroundColor: colors.surfaceMuted,
+    marginHorizontal: space[3],
+    marginBottom: space[2],
+    padding: space[3],
+    borderRadius: radius.md,
+  },
+  repricingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginBottom: space[2],
+  },
+  repricingTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.brand,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  repricingBody: {
+    gap: space[2],
+  },
+  priceChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  currentPrice: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
+    color: colors.textTertiary,
+    textDecorationLine: 'line-through',
+  },
+  newPrice: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textPrimary,
+  },
+  savingsBadge: {
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    marginLeft: space[1],
+  },
+  savingsText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xs,
+  },
+  profitIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  profitText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.success,
   },
 });
