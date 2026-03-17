@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, statusConfig, healthConfig, tagConfig, MANUAL_TAGS, DERIVED_TAGS } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
@@ -81,6 +82,7 @@ export default function ItemDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [savingTags, setSavingTags] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const [soldModalVisible, setSoldModalVisible] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
@@ -93,6 +95,39 @@ export default function ItemDetailScreen() {
         .finally(() => setLoading(false));
     }
   }, [id]);
+
+  // Photo upload handler
+  const handleAddPhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission needed', 'Please allow access to your photo library to add photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        setUploadingPhoto(true);
+        const photoUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        const currentPhotos = item?.photos || [];
+        const updated = await api.updateItem(id!, { photos: [photoUri, ...currentPhotos] });
+        setItem(updated);
+        setToast({ visible: true, message: 'Photo added!', type: 'success' });
+      }
+    } catch (e) {
+      console.error('Photo upload error:', e);
+      setToast({ visible: true, message: 'Failed to add photo', type: 'error' });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const updateStatus = async (status: string, additionalData?: any) => {
     if (updating) return;
@@ -210,16 +245,28 @@ export default function ItemDetailScreen() {
         </View>
 
         {/* Photo */}
-        <View style={styles.photoContainer}>
-          {hasPhoto ? (
-            <Image source={{ uri: item.photos[0] }} style={styles.photo} />
+        <TouchableOpacity style={styles.photoContainer} onPress={handleAddPhoto} activeOpacity={0.8}>
+          {uploadingPhoto ? (
+            <View style={styles.photoEmpty}>
+              <ActivityIndicator size="small" color={colors.brand} />
+              <Text style={styles.photoEmptyText}>Uploading...</Text>
+            </View>
+          ) : hasPhoto ? (
+            <>
+              <Image source={{ uri: item.photos[0] }} style={styles.photo} />
+              <View style={styles.photoAddMore}>
+                <Feather name="plus" size={16} color={colors.textInverse} />
+              </View>
+            </>
           ) : (
             <View style={styles.photoEmpty}>
-              <Feather name="camera" size={24} color={colors.textMuted} />
-              <Text style={styles.photoEmptyText}>No photos</Text>
+              <View style={styles.photoAddIcon}>
+                <Feather name="camera" size={24} color={colors.brand} />
+              </View>
+              <Text style={styles.photoEmptyText}>Tap to add photo</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Title & Status */}
         <Text style={styles.itemTitle}>{item.title}</Text>
@@ -585,9 +632,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space[2],
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
   },
   photoEmptyText: {
     ...typography.caption,
+    color: colors.textSecondary,
+  },
+  photoAddIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.sm,
+  },
+  photoAddMore: {
+    position: 'absolute',
+    bottom: space[3],
+    right: space[3],
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
   },
 
   // Title & Badges

@@ -244,7 +244,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ─── ACTION FEED ─── */}
-        <View style={styles.section}>
+        <View style={[styles.section, styles.sectionWithTopSpace]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>This Week</Text>
             {actions.length > 5 && (
@@ -442,6 +442,9 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     marginBottom: space[7],
+  },
+  sectionWithTopSpace: {
+    marginTop: space[2],
   },
   sectionHeader: {
     flexDirection: 'row',

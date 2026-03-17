@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows, statusConfig } from '../../src/theme';
 import { api } from '../../src/api';
+import { useCurrency } from '../../src/currency';
 import { EmptyState } from '../../src/components/UI';
 
 const STAGES = [
@@ -18,9 +19,14 @@ const STAGES = [
   { key: 'completed', icon: 'check-circle', color: colors.textTertiary },
 ];
 
-// Pipeline Item Card - Compact, scannable
+// Pipeline Item Card - Enhanced with price, profit, and photo
 function PipelineCard({ item, onPress }: { item: any; onPress: () => void }) {
+  const { formatAmount } = useCurrency();
   const daysInfo = item.days_listed ?? item.days_in_inventory;
+  const hasPhoto = item.photos && item.photos.length > 0 && item.photos[0];
+  const price = item.listed_price || item.target_list_price || item.purchase_price;
+  const profit = item.profit || (item.listed_price && item.purchase_price ? item.listed_price - item.purchase_price : 0);
+  const isStale = daysInfo > 30;
   
   return (
     <TouchableOpacity
@@ -29,23 +35,43 @@ function PipelineCard({ item, onPress }: { item: any; onPress: () => void }) {
       onPress={onPress}
       activeOpacity={0.6}
     >
+      {/* Photo */}
       <View style={styles.pipePhoto}>
-        <Feather name="camera" size={14} color={colors.textMuted} />
+        {hasPhoto ? (
+          <Image source={{ uri: item.photos[0] }} style={styles.pipePhotoImage} />
+        ) : (
+          <Feather name="camera" size={16} color={colors.textMuted} />
+        )}
+        {/* Days badge overlay */}
+        {daysInfo != null && daysInfo > 0 && (
+          <View style={[styles.pipeDaysBadge, isStale && styles.pipeDaysBadgeStale]}>
+            <Text style={[styles.pipeDaysText, isStale && styles.pipeDaysTextStale]}>{daysInfo}d</Text>
+          </View>
+        )}
       </View>
+      
+      {/* Content */}
       <Text style={styles.pipeTitle} numberOfLines={1}>{item.title}</Text>
-      <Text style={styles.pipeBrand} numberOfLines={1}>{item.brand}</Text>
+      <Text style={styles.pipeBrand} numberOfLines={1}>{item.brand || 'No brand'}</Text>
+      
+      {/* Price & Profit Row */}
+      {price > 0 && (
+        <View style={styles.pipePriceRow}>
+          <Text style={styles.pipePrice}>{formatAmount(price)}</Text>
+          {profit > 0 && (
+            <Text style={styles.pipeProfit}>+{formatAmount(profit)}</Text>
+          )}
+        </View>
+      )}
+      
+      {/* Platform badges */}
       {item.platforms?.length > 0 && (
         <View style={styles.pipePlatforms}>
           {item.platforms.slice(0, 2).map((p: string, i: number) => (
-            <Text key={p} style={styles.pipePlatformText}>
-              {i > 0 ? ' · ' : ''}{p.charAt(0).toUpperCase() + p.slice(1)}
-            </Text>
+            <View key={p} style={styles.pipePlatformBadge}>
+              <Text style={styles.pipePlatformText}>{p.charAt(0).toUpperCase()}</Text>
+            </View>
           ))}
-        </View>
-      )}
-      {daysInfo != null && daysInfo > 0 && (
-        <View style={styles.pipeDays}>
-          <Text style={styles.pipeDaysText}>{daysInfo}d</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -322,20 +348,47 @@ const styles = StyleSheet.create({
 
   // Pipeline Card
   pipeCard: {
-    width: 156,
+    width: 160,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: space[3] + 2,
-    ...shadows.sm,
+    padding: space[3],
+    ...shadows.card,
   },
   pipePhoto: {
     width: '100%',
-    height: 80,
+    height: 90,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: space[2] + 2,
+    marginBottom: space[3],
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  pipePhotoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: radius.md,
+  },
+  pipeDaysBadge: {
+    position: 'absolute',
+    top: space[1],
+    right: space[1],
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  pipeDaysBadgeStale: {
+    backgroundColor: colors.warningLight,
+  },
+  pipeDaysText: {
+    fontFamily: fontFamily.mono,
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
+  pipeDaysTextStale: {
+    color: colors.warning,
   },
   pipeTitle: {
     fontFamily: fontFamily.bold,
@@ -350,21 +403,37 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: space[2],
   },
+  pipePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginBottom: space[2],
+  },
+  pipePrice: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+  },
+  pipeProfit: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.success,
+  },
   pipePlatforms: {
     flexDirection: 'row',
-    marginBottom: space[1],
+    gap: space[1],
+  },
+  pipePlatformBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pipePlatformText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-  },
-  pipeDays: {
-    marginTop: 'auto',
-  },
-  pipeDaysText: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.xs,
+    fontFamily: fontFamily.bold,
+    fontSize: 10,
     color: colors.textTertiary,
   },
 });

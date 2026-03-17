@@ -114,6 +114,9 @@ export default function InsightsScreen() {
   const categoryEntries = Object.entries(data.category_performance).sort((a, b) => b[1].profit - a[1].profit);
   const maxPlatformRev = Math.max(...platformEntries.map(x => x[1]), 1);
   const maxCategoryProfit = Math.max(...categoryEntries.map(x => x[1].profit), 1);
+  
+  // Check if there's meaningful chart data (at least one month with non-zero values)
+  const hasChartData = data.monthly_trends?.some(t => t.revenue > 0 || t.profit > 0);
 
   return (
     <ScrollView
@@ -158,7 +161,7 @@ export default function InsightsScreen() {
       </View>
 
       {/* Monthly Revenue */}
-      {data.monthly_trends.length > 0 && (
+      {data.monthly_trends.length > 0 && hasChartData ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Monthly Revenue</Text>
           <View style={styles.chartCard}>
@@ -170,10 +173,19 @@ export default function InsightsScreen() {
             />
           </View>
         </View>
+      ) : (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monthly Revenue</Text>
+          <View style={styles.chartPlaceholder}>
+            <Feather name="trending-up" size={32} color={colors.textMuted} />
+            <Text style={styles.chartPlaceholderTitle}>Your charts will appear here</Text>
+            <Text style={styles.chartPlaceholderText}>Complete your first sale to see revenue trends</Text>
+          </View>
+        </View>
       )}
 
       {/* Monthly Profit */}
-      {data.monthly_trends.length > 0 && (
+      {data.monthly_trends.length > 0 && hasChartData ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Monthly Profit</Text>
           <View style={styles.chartCard}>
@@ -188,7 +200,7 @@ export default function InsightsScreen() {
             />
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* Platform Performance */}
       {platformEntries.length > 0 && (
@@ -359,6 +371,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.cardPadding,
     ...shadows.xs,
+  },
+  chartPlaceholder: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: space[8],
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.xs,
+  },
+  chartPlaceholderTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
+    marginTop: space[4],
+  },
+  chartPlaceholderText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
+    marginTop: space[1],
+    textAlign: 'center',
   },
 
   // List Card
