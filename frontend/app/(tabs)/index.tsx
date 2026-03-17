@@ -9,6 +9,7 @@ import { useCurrency } from '../../src/currency';
 import { QuickActionSheet } from '../../src/components/QuickActionSheet';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
+import { Skeleton, SkeletonStatCard, SkeletonListItem } from '../../src/components/UI';
 
 // ─── HERO METRIC CARD ───
 function HeroMetric({ label, value, subValue, trend, color }: {
@@ -160,9 +161,69 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.brand} />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Skeleton */}
+          <View style={styles.header}>
+            <View>
+              <Skeleton width={140} height={28} borderRadius={radius.sm} />
+              <Skeleton width={100} height={14} style={{ marginTop: space[2] }} />
+            </View>
+            <Skeleton width={40} height={40} borderRadius={20} />
+          </View>
+
+          {/* Hero Card Skeleton */}
+          <View style={[cardStyles.hero, styles.heroCard]}>
+            <View style={styles.heroRow}>
+              <View style={styles.heroMetric}>
+                <Skeleton width={90} height={10} />
+                <Skeleton width={70} height={32} style={{ marginTop: space[2] }} />
+                <Skeleton width={50} height={12} style={{ marginTop: space[2] }} />
+              </View>
+              <View style={styles.heroDivider} />
+              <View style={styles.heroMetric}>
+                <Skeleton width={90} height={10} />
+                <Skeleton width={70} height={32} style={{ marginTop: space[2] }} />
+                <Skeleton width={50} height={12} style={{ marginTop: space[2] }} />
+              </View>
+            </View>
+          </View>
+
+          {/* Stats Pills Skeleton */}
+          <View style={styles.statPillsRow}>
+            {[1, 2, 3, 4].map((i) => (
+              <View key={i} style={styles.statPill}>
+                <Skeleton width={32} height={32} borderRadius={16} />
+                <Skeleton width={20} height={18} style={{ marginTop: space[1] }} />
+                <Skeleton width={40} height={10} style={{ marginTop: space[1] }} />
+              </View>
+            ))}
+          </View>
+
+          {/* Quick Actions Skeleton */}
+          <View style={styles.sectionHeader}>
+            <Skeleton width={100} height={18} />
+          </View>
+          <View style={styles.quickActionsGrid}>
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} width="48%" height={56} borderRadius={radius.lg} style={{ marginBottom: space[3] }} />
+            ))}
+          </View>
+
+          {/* This Week Skeleton */}
+          <View style={styles.sectionHeader}>
+            <Skeleton width={80} height={18} />
+          </View>
+          {[1, 2, 3].map((i) => (
+            <View key={i} style={{ marginBottom: space[3] }}>
+              <SkeletonListItem />
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }

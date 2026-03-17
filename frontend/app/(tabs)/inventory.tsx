@@ -8,7 +8,7 @@ import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
-import { EmptyState } from '../../src/components/UI';
+import { EmptyState, SkeletonCard } from '../../src/components/UI';
 import { DeleteConfirmModal } from '../../src/components/DeleteConfirmModal';
 
 const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
@@ -436,12 +436,32 @@ export default function InventoryScreen() {
     </View>
   );
 
-  // Loading State
+  // Loading State - Skeleton
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={styles.loadingText}>Loading inventory...</Text>
+      <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + space[4] }]}>
+        <View style={styles.headerArea}>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.title}>Inventory</Text>
+              <Text style={styles.subtitle}>Loading...</Text>
+            </View>
+          </View>
+          <View style={styles.filterRow}>
+            {FILTERS.map((f) => (
+              <View key={f} style={[styles.filterChip, f === 'All' && styles.filterChipActive]}>
+                <Text style={[styles.filterText, f === 'All' && styles.filterTextActive]}>{f}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={styles.skeletonList}>
+          {[1, 2, 3, 4].map((i) => (
+            <View key={i} style={styles.skeletonItem}>
+              <SkeletonCard />
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
@@ -677,6 +697,13 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textTertiary,
     marginTop: space[4],
+  },
+  skeletonList: {
+    paddingHorizontal: spacing.screenPadding,
+    gap: space[3],
+  },
+  skeletonItem: {
+    marginBottom: space[3],
   },
 
   // Header

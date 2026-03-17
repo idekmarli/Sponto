@@ -317,3 +317,145 @@ const dividerStyles = StyleSheet.create({
     backgroundColor: colors.divider,
   },
 });
+
+// ============================================================================
+// SKELETON COMPONENT
+// ============================================================================
+import { useEffect, useRef } from 'react';
+import { Animated, Easing } from 'react-native';
+
+interface SkeletonProps {
+  width?: number | string;
+  height?: number;
+  borderRadius?: number;
+  style?: ViewStyle;
+}
+
+export function Skeleton({ width = '100%', height = 16, borderRadius = radius.sm, style }: SkeletonProps) {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: width as any,
+          height,
+          borderRadius,
+          backgroundColor: colors.surfaceMuted,
+          opacity,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+// Pre-built skeleton layouts
+export function SkeletonCard() {
+  return (
+    <View style={skeletonStyles.card}>
+      <Skeleton width={100} height={120} borderRadius={0} />
+      <View style={skeletonStyles.cardContent}>
+        <Skeleton width="70%" height={18} />
+        <Skeleton width="50%" height={14} style={{ marginTop: space[2] }} />
+        <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[3] }}>
+          <Skeleton width={50} height={14} borderRadius={radius.xs} />
+          <Skeleton width={60} height={14} borderRadius={radius.xs} />
+        </View>
+        <View style={skeletonStyles.cardBottom}>
+          <Skeleton width={60} height={20} />
+          <Skeleton width={40} height={14} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function SkeletonListItem() {
+  return (
+    <View style={skeletonStyles.listItem}>
+      <Skeleton width={48} height={48} borderRadius={radius.md} />
+      <View style={skeletonStyles.listItemContent}>
+        <Skeleton width="60%" height={16} />
+        <Skeleton width="80%" height={12} style={{ marginTop: space[2] }} />
+      </View>
+      <Skeleton width={24} height={24} borderRadius={12} />
+    </View>
+  );
+}
+
+export function SkeletonStatCard() {
+  return (
+    <View style={skeletonStyles.statCard}>
+      <Skeleton width={80} height={10} />
+      <Skeleton width={60} height={24} style={{ marginTop: space[2] }} />
+      <Skeleton width={40} height={12} style={{ marginTop: space[2] }} />
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  cardContent: {
+    flex: 1,
+    padding: space[3],
+    justifyContent: 'space-between',
+  },
+  cardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: space[3],
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    padding: space[3],
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    ...shadows.xs,
+  },
+  listItemContent: {
+    flex: 1,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: space[4],
+    ...shadows.xs,
+  },
+});
