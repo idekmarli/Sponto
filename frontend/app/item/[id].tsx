@@ -33,18 +33,27 @@ function TagChip({ tag, isActive, isDerived, onPress }: {
   const config = tagConfig[tag.key];
   if (!config) return null;
   
+  const isTappable = !isDerived;
+  
   return (
     <TouchableOpacity
       style={[
         tagStyles.chip,
         isActive && { backgroundColor: config.bg, borderColor: config.color },
-        !isActive && tagStyles.chipInactive,
+        !isActive && !isDerived && tagStyles.chipInactiveTappable,
+        !isActive && isDerived && tagStyles.chipInactive,
         isDerived && tagStyles.chipDerived,
       ]}
       onPress={isDerived ? undefined : onPress}
       disabled={isDerived}
       activeOpacity={isDerived ? 1 : 0.6}
     >
+      {/* Add indicator for inactive tappable tags */}
+      {!isActive && isTappable && (
+        <View style={tagStyles.addIndicator}>
+          <Feather name="plus" size={8} color={colors.textMuted} />
+        </View>
+      )}
       <Feather name={tag.icon as any} size={12} color={isActive ? config.color : colors.textMuted} />
       <Text style={[
         tagStyles.text,
@@ -498,8 +507,22 @@ const tagStyles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     borderColor: colors.border,
   },
+  chipInactiveTappable: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
   chipDerived: {
     opacity: 0.8,
+  },
+  addIndicator: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
   },
   text: {
     fontFamily: fontFamily.medium,

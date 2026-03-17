@@ -506,13 +506,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: space[3],
   },
   sectionTitle: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
     color: colors.textPrimary,
     letterSpacing: -0.3,
+    marginBottom: space[3],
   },
   seeAll: {
     fontFamily: fontFamily.semibold,

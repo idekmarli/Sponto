@@ -203,8 +203,8 @@ export default function SourceScreen() {
           onPress={() => setShowCosts(!showCosts)}
           activeOpacity={0.6}
         >
-          <Feather name={showCosts ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
           <Text style={styles.costsToggleText}>Additional Costs</Text>
+          <Feather name={showCosts ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
         </TouchableOpacity>
 
         {showCosts && (
@@ -472,12 +472,16 @@ const styles = StyleSheet.create({
   costsToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[2],
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingHorizontal: space[4],
+    paddingVertical: space[3],
     marginBottom: space[4],
-    paddingVertical: space[2],
+    ...shadows.xs,
   },
   costsToggleText: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.textSecondary,
   },

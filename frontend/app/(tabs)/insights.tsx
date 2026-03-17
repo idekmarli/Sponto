@@ -140,11 +140,18 @@ export default function InsightsScreen() {
 
       {/* Key Metrics - 2x2 Grid */}
       <View style={styles.metricsGrid}>
-        <StatCard
-          label="Avg ROI"
-          value={`${data.avg_roi}%`}
-          variant={data.avg_roi > 50 ? 'highlight' : 'default'}
-        />
+        <View style={styles.metricCardWrap}>
+          <StatCard
+            label="Avg ROI"
+            value={`${data.avg_roi}%`}
+            variant={data.avg_roi > 100 ? 'highlight' : 'default'}
+          />
+          {data.avg_roi > 100 && (
+            <View style={styles.excellentBadge}>
+              <Text style={styles.excellentText}>Excellent</Text>
+            </View>
+          )}
+        </View>
         <StatCard
           label="Avg Days to Sell"
           value={`${data.avg_days_to_sell}`}
@@ -351,6 +358,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: space[3],
     marginBottom: space[8],
+  },
+  metricCardWrap: {
+    flex: 1,
+    minWidth: 100,
+    position: 'relative',
+  },
+  excellentBadge: {
+    position: 'absolute',
+    top: space[2],
+    right: space[2],
+    backgroundColor: colors.success,
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  excellentText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 9,
+    color: colors.textInverse,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // Sections
