@@ -253,12 +253,8 @@ export default function PipelineScreen() {
             })}
           </View>
           
-          {/* Minimal Legend - Horizontal Scroll */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.progressLegend}
-          >
+          {/* Legend - Wrapping */}
+          <View style={styles.progressLegend}>
             {STAGES.filter(st => (pipeline[st.key] || []).length > 0).map(stage => (
               <View key={stage.key} style={styles.progressLegendItem}>
                 <View style={[styles.progressDot, { backgroundColor: stage.color }]} />
@@ -267,7 +263,7 @@ export default function PipelineScreen() {
                 </Text>
               </View>
             ))}
-          </ScrollView>
+          </View>
         </View>
       )}
 
@@ -467,13 +463,15 @@ const styles = StyleSheet.create({
   },
   progressLegend: {
     flexDirection: 'row',
-    gap: space[4],
-    paddingRight: space[4],
+    flexWrap: 'wrap',
+    gap: space[2],
+    rowGap: space[2],
   },
   progressLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[2],
+    gap: space[1],
+    paddingRight: space[2],
   },
   progressDot: {
     width: 8,
@@ -482,7 +480,7 @@ const styles = StyleSheet.create({
   },
   progressLegendText: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
+    fontSize: 11,
     color: colors.textSecondary,
   },
 
