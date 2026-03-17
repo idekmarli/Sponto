@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -11,6 +11,8 @@ import { Toast } from '../../src/components/Toast';
 import { EmptyState } from '../../src/components/UI';
 
 const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
+const TAG_FILTERS = ['stale', 'dead_stock', 'incomplete', 'needs_cleanup', 'margin_risk'];
+const PLATFORM_FILTERS = ['eBay', 'Depop', 'Vinted', 'Poshmark', 'Vestiaire', 'Etsy'];
 const MAX_VISIBLE_TAGS = 3;
 
 // Tag Chip Component - Small, subtle
@@ -138,24 +140,49 @@ export default function InventoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('All');
+  
+  // Advanced filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
 
   // Modal state
   const [soldModalVisible, setSoldModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  
+  // Count active filters
+  const activeFilterCount = [tagFilter, platformFilter].filter(Boolean).length;
 
   const fetchItems = useCallback(async () => {
     try {
       const params: any = {};
       if (filter !== 'All') params.status = filter.toLowerCase();
-      setItems(await api.getItems(params));
+      const allItems = await api.getItems(params);
+      
+      // Apply client-side advanced filters
+      let filtered = allItems;
+      
+      if (tagFilter) {
+        filtered = filtered.filter((item: any) => 
+          item.tags?.includes(tagFilter) || item.derived_tags?.includes(tagFilter)
+        );
+      }
+      
+      if (platformFilter) {
+        filtered = filtered.filter((item: any) => 
+          item.platforms?.some((p: string) => p.toLowerCase() === platformFilter.toLowerCase())
+        );
+      }
+      
+      setItems(filtered);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filter]);
+  }, [filter, tagFilter, platformFilter]);
 
   useEffect(() => {
     fetchItems();
@@ -194,17 +221,33 @@ export default function InventoryScreen() {
           <Text style={styles.title}>Inventory</Text>
           <Text style={styles.subtitle}>{items.length} items</Text>
         </View>
-        <TouchableOpacity
-          testID="add-item-btn"
-          style={styles.addButton}
-          onPress={() => router.push('/quick-add')}
-          activeOpacity={0.7}
-        >
-          <Feather name="plus" size={20} color={colors.textInverse} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {/* Filter Button */}
+          <TouchableOpacity
+            style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
+            onPress={() => setShowFilters(true)}
+            activeOpacity={0.7}
+          >
+            <Feather name="filter" size={18} color={activeFilterCount > 0 ? colors.brand : colors.textSecondary} />
+            {activeFilterCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {/* Add Button */}
+          <TouchableOpacity
+            testID="add-item-btn"
+            style={styles.addButton}
+            onPress={() => router.push('/quick-add')}
+            activeOpacity={0.7}
+          >
+            <Feather name="plus" size={20} color={colors.textInverse} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Filters */}
+      {/* Status Filters */}
       <View style={styles.filterRow}>
         {FILTERS.map((f) => (
           <TouchableOpacity
@@ -218,6 +261,32 @@ export default function InventoryScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      
+      {/* Active Advanced Filters */}
+      {activeFilterCount > 0 && (
+        <View style={styles.activeFiltersRow}>
+          {tagFilter && (
+            <TouchableOpacity 
+              style={styles.activeFilterChip} 
+              onPress={() => setTagFilter(null)}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.activeFilterText}>{tagConfig[tagFilter]?.label || tagFilter}</Text>
+              <Feather name="x" size={12} color={colors.brand} />
+            </TouchableOpacity>
+          )}
+          {platformFilter && (
+            <TouchableOpacity 
+              style={styles.activeFilterChip} 
+              onPress={() => setPlatformFilter(null)}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.activeFilterText}>{platformFilter}</Text>
+              <Feather name="x" size={12} color={colors.brand} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 
@@ -290,6 +359,92 @@ export default function InventoryScreen() {
         type={toast.type}
         onHide={() => setToast(prev => ({ ...prev, visible: false }))}
       />
+
+      {/* Advanced Filters Modal */}
+      <Modal
+        visible={showFilters}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowFilters(false)} style={styles.modalCloseBtn}>
+              <Feather name="x" size={20} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Filters</Text>
+            <TouchableOpacity 
+              onPress={() => { setTagFilter(null); setPlatformFilter(null); }}
+              style={styles.modalClearBtn}
+            >
+              <Text style={styles.modalClearText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            {/* Tag Filters */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>By Tag</Text>
+              <View style={styles.filterChipsWrap}>
+                {TAG_FILTERS.map((t) => {
+                  const config = tagConfig[t];
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      style={[
+                        styles.modalFilterChip, 
+                        tagFilter === t && { backgroundColor: config?.bg || colors.surfaceMuted, borderColor: config?.color || colors.brand }
+                      ]}
+                      onPress={() => setTagFilter(tagFilter === t ? null : t)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[
+                        styles.modalFilterChipText,
+                        tagFilter === t && { color: config?.color || colors.brand }
+                      ]}>
+                        {config?.label || t}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Platform Filters */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>By Platform</Text>
+              <View style={styles.filterChipsWrap}>
+                {PLATFORM_FILTERS.map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[
+                      styles.modalFilterChip, 
+                      platformFilter === p && styles.modalFilterChipActive
+                    ]}
+                    onPress={() => setPlatformFilter(platformFilter === p ? null : p)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={[
+                      styles.modalFilterChipText,
+                      platformFilter === p && styles.modalFilterChipTextActive
+                    ]}>
+                      {p}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity 
+            style={styles.modalApplyBtn}
+            onPress={() => setShowFilters(false)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.modalApplyText}>Apply Filters</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -336,6 +491,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.xs,
+    position: 'relative',
+  },
+  filterButtonActive: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 10,
+    color: colors.textInverse,
   },
 
   // Filters
@@ -517,6 +708,122 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   emptyAddText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
+  },
+
+  // Active Filters Row
+  activeFiltersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
+    marginTop: space[3],
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1],
+    paddingHorizontal: space[3],
+    paddingVertical: space[1] + 2,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  activeFilterText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.brand,
+  },
+
+  // Filter Modal
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: space[4],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.screenPadding,
+    paddingBottom: space[4],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  modalCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textPrimary,
+  },
+  modalClearBtn: {
+    paddingHorizontal: space[2],
+    paddingVertical: space[1],
+  },
+  modalClearText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.brand,
+  },
+  modalScroll: {
+    flex: 1,
+    paddingHorizontal: spacing.screenPadding,
+  },
+  filterSection: {
+    marginTop: space[6],
+  },
+  filterSectionTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+    marginBottom: space[3],
+  },
+  filterChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
+  },
+  modalFilterChip: {
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalFilterChipActive: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.brand,
+  },
+  modalFilterChipText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+  modalFilterChipTextActive: {
+    color: colors.brand,
+  },
+  modalApplyBtn: {
+    marginHorizontal: spacing.screenPadding,
+    marginBottom: space[8],
+    marginTop: space[4],
+    backgroundColor: colors.brand,
+    height: spacing.buttonHeight,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
+  },
+  modalApplyText: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.md,
     color: colors.textInverse,
