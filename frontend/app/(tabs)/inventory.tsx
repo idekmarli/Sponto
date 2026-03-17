@@ -707,16 +707,16 @@ const styles = StyleSheet.create({
     marginBottom: space[3],
   },
 
-  // Header
+  // Liquid Glass Header
   headerArea: {
     paddingHorizontal: spacing.screenPadding,
     marginBottom: space[4],
     paddingTop: space[2],
     paddingBottom: space[3],
     marginHorizontal: -spacing.screenPadding,
-    backgroundColor: 'rgba(245, 244, 242, 0.85)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.5)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -751,7 +751,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -778,7 +780,7 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
 
-  // Filters
+  // Liquid Glass Filters
   filterRow: {
     flexDirection: 'row',
     gap: space[2],
@@ -788,7 +790,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     paddingVertical: space[2] + 2,
     borderRadius: radius.full,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
   },
   filterChipActive: {
     backgroundColor: colors.brand,

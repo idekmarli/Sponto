@@ -425,21 +425,29 @@ const styles = StyleSheet.create({
     marginTop: space[4],
   },
 
-  // Glass Header
+  // Liquid Glass Header
   glassHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
-    backgroundColor: 'rgba(245, 244, 242, 0.75)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.5)',
+    // Inner glow effect
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 0,
   },
   glassHeaderWeb: {
     // @ts-ignore - web only property
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
+    backdropFilter: 'blur(40px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+    background: 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.25) 100%)',
+    borderBottom: '1px solid rgba(255,255,255,0.6)',
+    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.8), 0 4px 30px rgba(0,0,0,0.05)',
   },
   glassHeaderContent: {
     flexDirection: 'row',
@@ -464,7 +472,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
   },
