@@ -37,17 +37,11 @@ export const borderRadius = {
 
 export const shadows = {
   subtle: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.05)',
     elevation: 2,
   },
   medium: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
+    boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.1)',
     elevation: 5,
   },
 };
