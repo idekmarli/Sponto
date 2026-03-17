@@ -30,12 +30,15 @@ function TagChip({ tagKey, isDerived = false }: { tagKey: string; isDerived?: bo
 }
 
 // Item Card Component - Photo-first, scannable
-function ItemCard({ item, onPress, onQuickSold, formatAmount, currencySymbol }: { 
+function ItemCard({ item, onPress, onLongPress, onQuickSold, formatAmount, currencySymbol, isSelected, selectionMode }: { 
   item: any; 
   onPress: () => void; 
+  onLongPress?: () => void;
   onQuickSold: () => void;
   formatAmount: (n: number) => string;
   currencySymbol: string;
+  isSelected?: boolean;
+  selectionMode?: boolean;
 }) {
   const statusCfg = statusConfig[item.status] || statusConfig.sourced;
   const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
@@ -53,10 +56,19 @@ function ItemCard({ item, onPress, onQuickSold, formatAmount, currencySymbol }: 
   return (
     <TouchableOpacity
       testID={`inventory-item-${item.id}`}
-      style={styles.itemCard}
+      style={[styles.itemCard, isSelected && styles.itemCardSelected]}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       activeOpacity={0.6}
     >
+      {/* Selection Checkbox */}
+      {selectionMode && (
+        <View style={[styles.selectionCheckbox, isSelected && styles.selectionCheckboxSelected]}>
+          {isSelected && <Feather name="check" size={14} color={colors.textInverse} />}
+        </View>
+      )}
+      
       {/* Photo */}
       <View style={styles.photoContainer}>
         {hasPhoto ? (
@@ -152,6 +164,11 @@ export default function InventoryScreen() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
   
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  
   // Count active filters
   const activeFilterCount = [tagFilter, platformFilter].filter(Boolean).length;
 
@@ -205,13 +222,74 @@ export default function InventoryScreen() {
     fetchItems();
   };
 
+  // Bulk selection handlers
+  const toggleSelection = (id: string) => {
+    const newSelection = new Set(selectedIds);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedIds(newSelection);
+    if (newSelection.size === 0) {
+      setSelectionMode(false);
+    }
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(items.map(i => i.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const handleLongPress = (item: any) => {
+    if (!selectionMode) {
+      setSelectionMode(true);
+      setSelectedIds(new Set([item.id]));
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    try {
+      for (const id of selectedIds) {
+        await api.updateItem(id, { status: newStatus });
+      }
+      setToast({ visible: true, message: `${selectedIds.size} items updated`, type: 'success' });
+      clearSelection();
+      fetchItems();
+    } catch (e) {
+      setToast({ visible: true, message: 'Failed to update items', type: 'error' });
+    }
+    setShowBulkActions(false);
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      for (const id of selectedIds) {
+        await api.deleteItem(id);
+      }
+      setToast({ visible: true, message: `${selectedIds.size} items deleted`, type: 'success' });
+      clearSelection();
+      fetchItems();
+    } catch (e) {
+      setToast({ visible: true, message: 'Failed to delete items', type: 'error' });
+    }
+    setShowBulkActions(false);
+  };
+
   const renderItem = ({ item }: { item: any }) => (
     <ItemCard 
       item={item} 
-      onPress={() => router.push(`/item/${item.id}`)}
+      onPress={() => selectionMode ? toggleSelection(item.id) : router.push(`/item/${item.id}`)}
+      onLongPress={() => handleLongPress(item)}
       onQuickSold={() => handleQuickSold(item)}
       formatAmount={formatAmount}
       currencySymbol={currency.symbol}
+      isSelected={selectedIds.has(item.id)}
+      selectionMode={selectionMode}
     />
   );
 
@@ -219,38 +297,55 @@ export default function InventoryScreen() {
     <View style={styles.headerArea}>
       {/* Title Row */}
       <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Inventory</Text>
-          <Text style={styles.subtitle}>{items.length} items</Text>
-        </View>
-        <View style={styles.headerActions}>
-          {/* Filter Button */}
-          <TouchableOpacity
-            style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
-            onPress={() => setShowFilters(true)}
-            activeOpacity={0.7}
-          >
-            <Feather name="filter" size={18} color={activeFilterCount > 0 ? colors.brand : colors.textSecondary} />
-            {activeFilterCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          {/* Add Button */}
-          <TouchableOpacity
-            testID="add-item-btn"
-            style={styles.addButton}
-            onPress={() => router.push('/quick-add')}
-            activeOpacity={0.7}
-          >
-            <Feather name="plus" size={20} color={colors.textInverse} />
-          </TouchableOpacity>
-        </View>
+        {selectionMode ? (
+          <>
+            <View style={styles.selectionHeader}>
+              <TouchableOpacity onPress={clearSelection} style={styles.cancelSelectionBtn}>
+                <Feather name="x" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.selectionCount}>{selectedIds.size} selected</Text>
+            </View>
+            <TouchableOpacity onPress={selectAll} style={styles.selectAllBtn}>
+              <Text style={styles.selectAllText}>Select All</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <View>
+              <Text style={styles.title}>Inventory</Text>
+              <Text style={styles.subtitle}>{items.length} items</Text>
+            </View>
+            <View style={styles.headerActions}>
+              {/* Filter Button */}
+              <TouchableOpacity
+                style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
+                onPress={() => setShowFilters(true)}
+                activeOpacity={0.7}
+              >
+                <Feather name="filter" size={18} color={activeFilterCount > 0 ? colors.brand : colors.textSecondary} />
+                {activeFilterCount > 0 && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {/* Add Button */}
+              <TouchableOpacity
+                testID="add-item-btn"
+                style={styles.addButton}
+                onPress={() => router.push('/quick-add')}
+                activeOpacity={0.7}
+              >
+                <Feather name="plus" size={20} color={colors.textInverse} />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
 
-      {/* Status Filters */}
-      <View style={styles.filterRow}>
+      {/* Status Filters - hide in selection mode */}
+      {!selectionMode && (
+        <View style={styles.filterRow}>
         {FILTERS.map((f) => (
           <TouchableOpacity
             key={f}
@@ -262,10 +357,11 @@ export default function InventoryScreen() {
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
           </TouchableOpacity>
         ))}
-      </View>
+        </View>
+      )}
       
-      {/* Active Advanced Filters */}
-      {activeFilterCount > 0 && (
+      {/* Active Advanced Filters - hide in selection mode */}
+      {!selectionMode && activeFilterCount > 0 && (
         <View style={styles.activeFiltersRow}>
           {tagFilter && (
             <TouchableOpacity 
