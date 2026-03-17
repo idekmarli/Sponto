@@ -13,12 +13,12 @@ import { Toast } from '../../src/components/Toast';
 const pipelineColors = {
   sourced: '#6366F1',     // Indigo - new acquisition
   intake: '#8B5CF6',      // Purple - processing
-  photographed: '#EC4899', // Pink - creative/photos
+  photographed: '#F43F5E', // Rose/Red - creative/photos
   listed: '#F59E0B',      // Amber - live/active
   crosslisted: '#06B6D4', // Cyan - multi-platform
-  sold: '#10B981',        // Emerald - success/money
+  sold: '#22C55E',        // Bright Green - success/money
   shipped: '#3B82F6',     // Blue - in transit
-  completed: '#059669',   // Green - done
+  completed: '#16A34A',   // Vibrant Green - done
 };
 
 const STAGES = [
