@@ -41,22 +41,28 @@ Resellr OS is a premium reseller operating system mobile app for fashion, access
 | PUT | /api/settings | Update settings |
 | POST | /api/seed | Seed mock data |
 
-## Design System
-- **Background**: #F9F8F6 (warm cream)
+## Design System (Refined v2)
+- **Background**: #F7F6F3 (warm stone)
 - **Surface**: #FFFFFF
-- **Text Primary**: #1C1C1E (deep charcoal)
-- **Accent**: #8C7B70 (muted bronze)
-- **Success**: #7A8C75 (sage)
-- **Warning**: #BC7C68 (muted clay)
-- **Typography**: PlayfairDisplay_700Bold (headings/metrics), Mulish (body), SpaceMono (data)
-- **Border Radius**: 12px (cards), pill (buttons/chips)
+- **Surface Highlight**: #F0EDE8
+- **Text Primary**: #1A1A1C (deep charcoal)
+- **Accent**: #9A8577 (muted bronze)
+- **Success**: #6B7F66 (sage)
+- **Warning**: #B8725C (muted clay)
+- **Typography**: PlayfairDisplay_700Bold (display 34-52px), Mulish (body/labels), SpaceMono (data/monospace)
+- **Shadows**: 4-tier system (subtle → card → medium → strong)
+- **Border Radius**: xs 6, s 8, m 14, l 18, xl 24, pill
+- **Spacing**: 8pt grid with containerPadding 22, cardPadding 18, sectionGap 28
+- **Platform chips**: Neutral gray (#86868B) — avoids color clutter
+- **Hairline dividers**: StyleSheet.hairlineWidth for refined separation
+- **All borders removed**: Cards use subtle box-shadows instead of borders
 
 ## Mock Data
 15 realistic fashion resale items seeded including Acne Studios, Jacquemus, Maison Margiela, Comme des Garçons, A.P.C., Sandro, Isabel Marant, The Row, Totême, Lemaire, Stüssy, Carhartt WIP, Our Legacy, Margaret Howell, Dries Van Noten.
 
-## Test Results
+## Test Results (v2 - Post Refinement)
 - Backend: 25/25 tests passed (100%)
-- Frontend: All critical flows verified (navigation, data loading, source calculator, CRUD, filters)
+- Frontend: 100% success — all screens verified with improved design quality
 
 ## Future Enhancements
 - Authentication (JWT or Google OAuth)
