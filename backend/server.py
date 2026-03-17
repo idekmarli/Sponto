@@ -1260,27 +1260,32 @@ async def seed_data():
     ]
 
     # Sample product photos from Unsplash
-    SAMPLE_PHOTOS = {
-        "Bags": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=400&fit=crop",
-        "Footwear": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
-        "Tops": "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&h=400&fit=crop",
-        "Knitwear": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=400&fit=crop",
-        "Outerwear": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=400&fit=crop",
-        "Trousers": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&h=400&fit=crop",
-        "Dresses": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=400&fit=crop",
-        "Accessories": "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop",
-    }
+    # Unique product photos for each item
+    ITEM_PHOTOS = [
+        "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=400&fit=crop",  # Acne bag
+        "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?w=400&h=400&fit=crop",  # Jacquemus bag
+        "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=400&h=400&fit=crop",  # Tabi boots
+        "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=400&fit=crop",  # CdG striped shirt
+        "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&h=400&fit=crop",  # APC bag
+        "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=400&fit=crop",  # Sandro tweed jacket
+        "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=400&fit=crop",  # Isabel Marant knit
+        "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=400&h=400&fit=crop",  # The Row bag
+        "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&h=400&fit=crop",  # Toteme denim
+        "https://images.unsplash.com/photo-1594633313593-bab3825d0caf?w=400&h=400&fit=crop",  # Lemaire bag
+        "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop",  # Stussy varsity
+        "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop",  # Carhartt coat
+        "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=400&h=400&fit=crop",  # Our Legacy knit
+        "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=400&fit=crop",  # Margaret Howell dress
+        "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=400&h=400&fit=crop",  # DVN scarf
+    ]
 
-    for item in mock_items:
+    for i, item in enumerate(mock_items):
         item["id"] = make_id()
         item["created_at"] = now_iso()
         item["updated_at"] = now_iso()
-        category = item.get("category", "Accessories")
-        # Add photo based on category (except for sourced items)
-        if item.get("status") != "sourced":
-            item["photos"] = [SAMPLE_PHOTOS.get(category, SAMPLE_PHOTOS["Accessories"])]
-        else:
-            item["photos"] = []
+        # Give each item its own unique photo
+        photo_url = ITEM_PHOTOS[i] if i < len(ITEM_PHOTOS) else ""
+        item["photos"] = [photo_url] if photo_url else []
         item["is_draft"] = False
 
     await db.items.insert_many(mock_items)
