@@ -9,16 +9,16 @@ import { useCurrency } from '../../src/currency';
 import { EmptyState } from '../../src/components/UI';
 import { Toast } from '../../src/components/Toast';
 
-// Vibrant Pipeline Stage Colors
+// Pipeline Stage Colors — Refined, cohesive palette matching app aesthetic
 const pipelineColors = {
-  sourced: '#6366F1',     // Indigo - sourcing/acquiring
-  intake: '#8B5CF6',      // Purple - processing
-  photographed: '#EC4899', // Pink - creative/photos
-  listed: '#14B8A6',      // Teal - live/active
-  crosslisted: '#06B6D4', // Cyan - multi-platform
-  sold: '#22C55E',        // Green - success/money
-  shipped: '#F59E0B',     // Amber - in transit
-  completed: '#10B981',   // Emerald - done
+  sourced: '#78716C',     // Stone gray - new acquisition
+  intake: '#8B7355',      // Warm taupe - processing
+  photographed: '#9F7B56', // Caramel - creative/photos
+  listed: '#6B8E6B',      // Sage green - live/active
+  crosslisted: '#5C8A8A', // Teal sage - multi-platform
+  sold: '#4A7A4A',        // Forest green - success/money
+  shipped: '#B8860B',     // Dark goldenrod - in transit
+  completed: '#3D5A3D',   // Deep sage - done
 };
 
 const STAGES = [
@@ -505,17 +505,17 @@ const styles = StyleSheet.create({
 
   // Stage Cards
   stageCards: {
-    gap: space[3],
     paddingRight: spacing.screenPadding,
   },
 
   // Pipeline Card
   pipeCard: {
-    width: 160,
+    width: 156,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: space[3],
-    ...shadows.card,
+    marginRight: space[3],
+    ...shadows.xs,
   },
   pipePhoto: {
     width: '100%',

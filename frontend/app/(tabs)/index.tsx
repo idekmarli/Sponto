@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   statPillsRow: {
     flexDirection: 'row',
     gap: space[2],
-    marginBottom: space[7],
+    marginBottom: space[6],
   },
   statPill: {
     flex: 1,
@@ -501,21 +501,25 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     paddingHorizontal: space[2],
     alignItems: 'center',
-    ...shadows.sm,
+    justifyContent: 'center',
+    minHeight: 90,
+    ...shadows.xs,
   },
   statPillIcon: {
-    marginBottom: space[1],
+    marginBottom: space[2],
   },
   statPillValue: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.xl,
-    letterSpacing: -0.5,
+    fontSize: fontSize.lg,
+    letterSpacing: -0.3,
+    color: colors.textPrimary,
   },
   statPillLabel: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
+    fontSize: 10,
     color: colors.textTertiary,
-    marginTop: 2,
+    marginTop: 3,
+    textAlign: 'center',
   },
 
   // First Item Guidance Card
@@ -588,14 +592,16 @@ const styles = StyleSheet.create({
     gap: space[3],
   },
   quickAction: {
-    width: '47%',
+    width: '47.5%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: space[4],
-    ...shadows.sm,
+    paddingVertical: space[4],
+    paddingHorizontal: space[3],
+    minHeight: 64,
+    ...shadows.xs,
   },
   quickActionIcon: {
     width: 40,
