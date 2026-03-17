@@ -228,58 +228,46 @@ export default function PipelineScreen() {
         </Text>
       </View>
 
-      {/* Stage Progress Overview */}
+      {/* Stage Progress Overview - Clean Design */}
       {totalItems > 0 && (
         <View style={styles.progressCard}>
+          {/* Simple Progress Bar */}
           <View style={styles.progressBar}>
             {STAGES.map((stage, i) => {
               const count = (pipeline[stage.key] || []).length;
-              // Show all stages, even empty ones with minimum width
-              const minFlex = count === 0 ? 0.3 : count;
+              if (count === 0) return null;
               return (
                 <View
                   key={stage.key}
                   style={[
                     styles.progressSegment,
-                    { 
-                      flex: minFlex, 
-                      backgroundColor: count === 0 ? stage.color + '30' : stage.color,
-                    },
-                    i === 0 && { borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
-                    i === STAGES.length - 1 && { borderTopRightRadius: 6, borderBottomRightRadius: 6 },
+                    { flex: count, backgroundColor: stage.color },
+                    i === 0 && { borderTopLeftRadius: 8, borderBottomLeftRadius: 8 },
                   ]}
-                />
-              );
-            })}
-          </View>
-          {/* Full Legend - All stages */}
-          <View style={styles.progressLegend}>
-            {STAGES.map(stage => {
-              const count = (pipeline[stage.key] || []).length;
-              return (
-                <View key={stage.key} style={styles.progressLegendItem}>
-                  <View style={[
-                    styles.progressDot, 
-                    { backgroundColor: count === 0 ? stage.color + '50' : stage.color }
-                  ]} />
-                  <Text style={[
-                    styles.progressLegendText,
-                    count === 0 && styles.progressLegendTextEmpty
-                  ]}>
-                    {count}
-                  </Text>
+                >
+                  {count > 0 && (
+                    <Text style={styles.progressSegmentCount}>{count}</Text>
+                  )}
                 </View>
               );
             })}
           </View>
-          {/* Stage Labels */}
-          <View style={styles.progressLabels}>
-            {STAGES.map(stage => (
-              <Text key={stage.key} style={styles.progressLabelText} numberOfLines={1}>
-                {statusConfig[stage.key]?.label?.split(' ')[0] || stage.key}
-              </Text>
+          
+          {/* Minimal Legend - Horizontal Scroll */}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.progressLegend}
+          >
+            {STAGES.filter(st => (pipeline[st.key] || []).length > 0).map(stage => (
+              <View key={stage.key} style={styles.progressLegendItem}>
+                <View style={[styles.progressDot, { backgroundColor: stage.color }]} />
+                <Text style={styles.progressLegendText}>
+                  {statusConfig[stage.key]?.label || stage.key}
+                </Text>
+              </View>
             ))}
-          </View>
+          </ScrollView>
         </View>
       )}
 
@@ -458,50 +446,44 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     flexDirection: 'row',
-    height: 12,
-    borderRadius: 6,
+    height: 28,
+    borderRadius: 14,
     overflow: 'hidden',
     gap: 2,
     marginBottom: space[3],
   },
   progressSegment: {
-    minWidth: 6,
+    minWidth: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressSegmentCount: {
+    fontFamily: fontFamily.bold,
+    fontSize: 11,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   progressLegend: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: space[1],
+    gap: space[4],
+    paddingRight: space[4],
   },
   progressLegendItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: space[2],
   },
   progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginBottom: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   progressLegendText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.sm,
-    color: colors.textPrimary,
-  },
-  progressLegendTextEmpty: {
-    color: colors.textTertiary,
-  },
-  progressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressLabelText: {
-    flex: 1,
     fontFamily: fontFamily.medium,
-    fontSize: 9,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
   },
 
   // Stage Section
