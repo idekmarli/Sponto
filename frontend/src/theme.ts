@@ -29,20 +29,20 @@ export const colors = {
   accentLight: '#A8A29E',
   accentMuted: '#D6D3D1',
   
-  // Semantic - Success — dark sage
-  success: '#3D5A3D',
-  successLight: '#E8F0E8',
-  successMuted: '#C1D4C1',
+  // Semantic - Success — vibrant green
+  success: '#16A34A',
+  successLight: '#DCFCE7',
+  successMuted: '#BBF7D0',
   
-  // Semantic - Warning — muted clay/rust
-  warning: '#92400E',
-  warningLight: '#FEF3E8',
-  warningMuted: '#E8D4C4',
+  // Semantic - Warning — vibrant amber
+  warning: '#D97706',
+  warningLight: '#FEF3C7',
+  warningMuted: '#FDE68A',
   
-  // Semantic - Error — refined terra
-  error: '#991B1B',
-  errorLight: '#FEF2F2',
-  errorMuted: '#E8C4C4',
+  // Semantic - Error — vibrant red
+  error: '#DC2626',
+  errorLight: '#FEE2E2',
+  errorMuted: '#FECACA',
   
   // Semantic - Info — refined slate
   info: '#475569',
