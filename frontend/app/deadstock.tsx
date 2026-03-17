@@ -3,21 +3,19 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, platformColors } from '../src/theme';
+import { colors, spacing, borderRadius, shadows } from '../src/theme';
 import { api } from '../src/api';
 
 const BUCKETS = [
-  { key: '30_45', label: '30–45 days', urgency: 'low', color: colors.accent },
-  { key: '45_60', label: '45–60 days', urgency: 'medium', color: colors.warning },
-  { key: '60_90', label: '60–90 days', urgency: 'high', color: '#C4704A' },
-  { key: '90_plus', label: '90+ days', urgency: 'critical', color: colors.error },
+  { key: '90_plus', label: '90+ days', color: colors.error },
+  { key: '60_90', label: '60–90 days', color: '#C4704A' },
+  { key: '45_60', label: '45–60 days', color: colors.warning },
+  { key: '30_45', label: '30–45 days', color: colors.accent },
 ];
 
 const ACTION_ICONS: Record<string, string> = {
-  'Optimize listing': 'edit-3',
-  'Crosslist or lower price': 'repeat',
-  'Lower price significantly': 'trending-down',
-  'Archive or bundle': 'archive',
+  'Optimize listing': 'edit-3', 'Crosslist or lower price': 'repeat',
+  'Lower price significantly': 'trending-down', 'Archive or bundle': 'archive',
 };
 
 export default function DeadStockScreen() {
@@ -28,107 +26,60 @@ export default function DeadStockScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
-    try {
-      const d = await api.getDeadstock();
-      setData(d);
-    } catch (e) {
-      console.error('Deadstock fetch error:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    try { setData(await api.getDeadstock()); }
+    catch (e) { console.error(e); }
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalItems = Object.values(data).reduce((sum, arr) => sum + arr.length, 0);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    );
-  }
+  if (loading) return <View style={[s.container, s.center, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
 
   return (
-    <ScrollView
-      testID="deadstock-screen"
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.accent} />}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity testID="back-btn" onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+    <ScrollView testID="deadstock-screen" style={s.container} contentContainerStyle={[s.content, { paddingTop: insets.top + 8 }]} showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.accent} />}>
+      <TouchableOpacity testID="back-btn" onPress={() => router.back()} style={s.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <Feather name="arrow-left" size={20} color={colors.textPrimary} />
+      </TouchableOpacity>
 
-      <Text style={styles.title}>Dead Stock</Text>
-      <Text style={styles.subtitle}>{totalItems} items need attention</Text>
+      <Text style={s.title}>Dead Stock</Text>
+      <Text style={s.subtitle}>{totalItems} items need attention</Text>
 
       {totalItems === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Feather name="check-circle" size={48} color={colors.success} />
-          </View>
-          <Text style={styles.emptyTitle}>All clear</Text>
-          <Text style={styles.emptyText}>No stale inventory right now. Keep it up!</Text>
+        <View style={s.emptyState}>
+          <View style={s.emptyIcon}><Feather name="check-circle" size={36} color={colors.success} /></View>
+          <Text style={s.emptyTitle}>All clear</Text>
+          <Text style={s.emptyText}>No stale inventory. Keep it up.</Text>
         </View>
       ) : (
         BUCKETS.map((bucket) => {
           const items = data[bucket.key] || [];
           if (items.length === 0) return null;
           return (
-            <View key={bucket.key} testID={`bucket-${bucket.key}`} style={styles.bucketSection}>
-              <View style={styles.bucketHeader}>
-                <View style={[styles.bucketDot, { backgroundColor: bucket.color }]} />
-                <Text style={styles.bucketLabel}>{bucket.label}</Text>
-                <View style={[styles.bucketCount, { backgroundColor: bucket.color + '18' }]}>
-                  <Text style={[styles.bucketCountText, { color: bucket.color }]}>{items.length}</Text>
-                </View>
+            <View key={bucket.key} testID={`bucket-${bucket.key}`} style={s.bucketSection}>
+              <View style={s.bucketHeader}>
+                <View style={[s.bucketDot, { backgroundColor: bucket.color }]} />
+                <Text style={s.bucketLabel}>{bucket.label}</Text>
+                <Text style={[s.bucketCount, { color: bucket.color }]}>{items.length}</Text>
               </View>
               {items.map((item: any) => {
-                const profitPotential = (item.target_list_price || 0) - (item.total_cost_basis || 0);
+                const potential = (item.target_list_price || 0) - (item.total_cost_basis || 0);
                 return (
-                  <TouchableOpacity
-                    key={item.id}
-                    testID={`deadstock-item-${item.id}`}
-                    style={styles.itemCard}
-                    onPress={() => router.push(`/item/${item.id}`)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.itemTop}>
-                      <View style={styles.itemPhoto}>
-                        <Feather name="image" size={16} color={colors.textTertiary} />
+                  <TouchableOpacity key={item.id} testID={`deadstock-item-${item.id}`} style={s.itemCard} onPress={() => router.push(`/item/${item.id}`)} activeOpacity={0.6}>
+                    <View style={s.itemTop}>
+                      <View style={s.itemPhoto}><Feather name="camera" size={14} color={colors.textTertiary} /></View>
+                      <View style={s.itemInfo}>
+                        <Text style={s.itemTitle} numberOfLines={1}>{item.title}</Text>
+                        <Text style={s.itemDays}>{item.days_listed}d listed</Text>
                       </View>
-                      <View style={styles.itemInfo}>
-                        <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                        <Text style={styles.itemDays}>{item.days_listed} days listed</Text>
-                      </View>
-                    </View>
-                    <View style={styles.itemNumbers}>
-                      <View style={styles.numItem}>
-                        <Text style={styles.numLabel}>Price</Text>
-                        <Text style={styles.numValue}>${item.target_list_price || 0}</Text>
-                      </View>
-                      <View style={styles.numItem}>
-                        <Text style={styles.numLabel}>Cost</Text>
-                        <Text style={styles.numValue}>${item.total_cost_basis || 0}</Text>
-                      </View>
-                      <View style={styles.numItem}>
-                        <Text style={styles.numLabel}>Potential</Text>
-                        <Text style={[styles.numValue, { color: profitPotential >= 0 ? colors.success : colors.warning }]}>
-                          ${profitPotential.toFixed(0)}
-                        </Text>
-                      </View>
+                      <Text style={[s.itemPotential, { color: potential >= 0 ? colors.success : colors.warning }]}>${potential.toFixed(0)}</Text>
                     </View>
                     {item.suggested_action && (
-                      <View style={[styles.actionSuggestion, { backgroundColor: bucket.color + '10' }]}>
-                        <Feather name={(ACTION_ICONS[item.suggested_action] || 'info') as any} size={14} color={bucket.color} />
-                        <Text style={[styles.actionSuggestionText, { color: bucket.color }]}>{item.suggested_action}</Text>
+                      <View style={[s.suggestion, { backgroundColor: bucket.color + '0D' }]}>
+                        <Feather name={(ACTION_ICONS[item.suggested_action] || 'info') as any} size={12} color={bucket.color} />
+                        <Text style={[s.suggestionText, { color: bucket.color }]}>{item.suggested_action}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -143,42 +94,29 @@ export default function DeadStockScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { justifyContent: 'center', alignItems: 'center' },
   content: { paddingHorizontal: spacing.containerPadding },
-  header: { marginBottom: 16 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
-  title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 28, color: colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.l },
-  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.success + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle: { fontFamily: 'Mulish_700Bold', fontSize: 22, color: colors.textPrimary },
-  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
+  backBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 28, color: colors.textPrimary, letterSpacing: -0.6 },
+  subtitle: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.sectionGap },
+  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 10 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.success + '12', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  emptyTitle: { fontFamily: 'Mulish_700Bold', fontSize: 20, color: colors.textPrimary },
+  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 14, color: colors.textSecondary },
   bucketSection: { marginBottom: spacing.l },
-  bucketHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  bucketDot: { width: 10, height: 10, borderRadius: 5 },
-  bucketLabel: { fontFamily: 'Mulish_700Bold', fontSize: 16, color: colors.textPrimary },
-  bucketCount: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: borderRadius.pill },
-  bucketCountText: { fontFamily: 'Mulish_600SemiBold', fontSize: 12 },
-  itemCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.m,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    gap: 10,
-  },
+  bucketHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  bucketDot: { width: 8, height: 8, borderRadius: 4 },
+  bucketLabel: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.textPrimary, flex: 1 },
+  bucketCount: { fontFamily: 'Mulish_600SemiBold', fontSize: 13 },
+  itemCard: { backgroundColor: colors.surface, borderRadius: borderRadius.m, padding: 14, marginBottom: 6, ...shadows.subtle, gap: 10 },
   itemTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  itemPhoto: { width: 44, height: 44, borderRadius: borderRadius.s, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
+  itemPhoto: { width: 40, height: 40, borderRadius: borderRadius.xs, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
   itemInfo: { flex: 1, gap: 2 },
-  itemTitle: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.textPrimary },
-  itemDays: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textSecondary },
-  itemNumbers: { flexDirection: 'row', gap: 12 },
-  numItem: { flex: 1, gap: 2 },
-  numLabel: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textTertiary },
-  numValue: { fontFamily: 'SpaceMono_400Regular', fontSize: 14, color: colors.textPrimary },
-  actionSuggestion: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: borderRadius.m },
-  actionSuggestionText: { fontFamily: 'Mulish_600SemiBold', fontSize: 13 },
+  itemTitle: { fontFamily: 'Mulish_700Bold', fontSize: 14, color: colors.textPrimary },
+  itemDays: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textSecondary },
+  itemPotential: { fontFamily: 'Mulish_700Bold', fontSize: 16, letterSpacing: -0.3 },
+  suggestion: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: borderRadius.s },
+  suggestionText: { fontFamily: 'Mulish_600SemiBold', fontSize: 12 },
 });

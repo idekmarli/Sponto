@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius } from '../../src/theme';
+import { colors, spacing } from '../../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabIconName = 'home' | 'archive' | 'target' | 'layers' | 'bar-chart-2';
@@ -18,41 +18,43 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View testID="custom-tab-bar" style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      {state.routes.map((route: any, index: number) => {
-        const config = TAB_CONFIG[index];
-        if (!config) return null;
-        const isFocused = state.index === index;
+    <View testID="custom-tab-bar" style={[styles.tabBarOuter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={styles.tabBarInner}>
+        {state.routes.map((route: any, index: number) => {
+          const config = TAB_CONFIG[index];
+          if (!config) return null;
+          const isFocused = state.index === index;
 
-        const onPress = () => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
 
-        return (
-          <TouchableOpacity
-            key={route.key}
-            testID={`tab-${config.name}`}
-            onPress={onPress}
-            style={styles.tabItem}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <View style={[styles.tabIconWrap, isFocused && styles.tabIconActive]}>
-              <Feather
-                name={config.icon}
-                size={20}
-                color={isFocused ? colors.primary : colors.textTertiary}
-              />
-            </View>
-            <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
-              {config.title}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TouchableOpacity
+              key={route.key}
+              testID={`tab-${config.name}`}
+              onPress={onPress}
+              style={styles.tabItem}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <View style={[styles.tabIconWrap, isFocused && styles.tabIconActive]}>
+                <Feather
+                  name={config.icon}
+                  size={19}
+                  color={isFocused ? colors.textPrimary : colors.textTertiary}
+                />
+              </View>
+              <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                {config.title}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -73,23 +75,27 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: 'row',
+  tabBarOuter: {
     backgroundColor: colors.surface,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: 6,
+  },
+  tabBarInner: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    paddingVertical: 2,
+    gap: 3,
   },
   tabIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -98,11 +104,12 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: 'Mulish_400Regular',
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textTertiary,
+    letterSpacing: 0.2,
   },
   tabLabelActive: {
-    fontFamily: 'Mulish_600SemiBold',
-    color: colors.primary,
+    fontFamily: 'Mulish_700Bold',
+    color: colors.textPrimary,
   },
 });

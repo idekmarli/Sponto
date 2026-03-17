@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows, statusLabels, healthLabels, platformColors } from '../../src/theme';
+import { colors, spacing, borderRadius, shadows, healthLabels } from '../../src/theme';
 import { api } from '../../src/api';
 
 const FILTERS = ['All', 'Listed', 'Crosslisted', 'Sourced', 'Sold', 'Completed'];
@@ -20,74 +20,72 @@ export default function InventoryScreen() {
     try {
       const params: any = {};
       if (filter !== 'All') params.status = filter.toLowerCase();
-      const data = await api.getItems(params);
-      setItems(data);
-    } catch (e) {
-      console.error('Items fetch error:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      setItems(await api.getItems(params));
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); setRefreshing(false); }
   }, [filter]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
-  const onRefresh = () => { setRefreshing(true); fetchItems(); };
-
   const renderItem = ({ item }: { item: any }) => {
     const health = healthLabels[item.health] || healthLabels.fresh;
-    const costBasis = item.total_cost_basis || 0;
     const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
+    const isSold = item.status === 'sold' || item.status === 'shipped' || item.status === 'completed';
 
     return (
       <TouchableOpacity
         testID={`inventory-item-${item.id}`}
-        style={styles.itemCard}
+        style={s.itemCard}
         onPress={() => router.push(`/item/${item.id}`)}
-        activeOpacity={0.7}
+        activeOpacity={0.6}
       >
-        <View style={styles.itemPhotoPlaceholder}>
-          <Feather name="image" size={20} color={colors.textTertiary} />
+        {/* Photo */}
+        <View style={s.itemPhoto}>
+          <Feather name="camera" size={16} color={colors.textTertiary} />
         </View>
-        <View style={styles.itemInfo}>
-          <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.itemBrand}>{item.brand}</Text>
-          <View style={styles.itemChips}>
-            <View style={[styles.healthBadge, { backgroundColor: health.color + '18' }]}>
-              <Text style={[styles.healthBadgeText, { color: health.color }]}>{health.label}</Text>
+
+        {/* Info */}
+        <View style={s.itemBody}>
+          <View style={s.itemTopRow}>
+            <View style={s.itemTitleArea}>
+              <Text style={s.itemTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={s.itemBrand}>{item.brand}{item.size ? ` · ${item.size}` : ''}</Text>
             </View>
-            {item.platforms?.slice(0, 2).map((p: string) => (
-              <View key={p} style={[styles.platformBadge, { backgroundColor: (platformColors[p] || colors.accent) + '15' }]}>
-                <Text style={[styles.platformBadgeText, { color: platformColors[p] || colors.accent }]}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </Text>
-              </View>
-            ))}
+            <View style={s.itemPriceArea}>
+              <Text style={s.itemPrice}>${displayPrice}</Text>
+              <Text style={[s.itemProfit, { color: item.net_profit >= 0 ? colors.profit : colors.loss }]}>
+                {item.net_profit >= 0 ? '+' : ''}${item.net_profit}
+              </Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.itemRight}>
-          <Text style={styles.itemPrice}>${displayPrice}</Text>
-          <Text style={[styles.itemProfit, { color: item.net_profit >= 0 ? colors.success : colors.warning }]}>
-            {item.net_profit >= 0 ? '+' : ''}${item.net_profit}
-          </Text>
-          {item.days_listed != null && (
-            <Text style={styles.itemDays}>{item.days_listed}d</Text>
-          )}
+          <View style={s.itemBottomRow}>
+            <View style={[s.healthDot, { backgroundColor: health.color }]} />
+            <Text style={s.healthText}>{health.label}</Text>
+            {item.platforms?.slice(0, 3).map((p: string) => (
+              <Text key={p} style={s.platformText}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
+            ))}
+            {item.days_listed != null && item.days_listed > 0 && !isSold && (
+              <Text style={s.daysText}>{item.days_listed}d</Text>
+            )}
+            {item.days_to_sell != null && isSold && (
+              <Text style={s.daysText}>{item.days_to_sell}d to sell</Text>
+            )}
+          </View>
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + 16 }]}>
+    <View testID="inventory-screen" style={[s.container, { paddingTop: insets.top + 20 }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={s.header}>
         <View>
-          <Text style={styles.title}>Inventory</Text>
-          <Text style={styles.subtitle}>{items.length} items</Text>
+          <Text style={s.title}>Inventory</Text>
+          <Text style={s.subtitle}>{items.length} items</Text>
         </View>
-        <TouchableOpacity testID="add-item-btn" style={styles.addBtn} onPress={() => router.push('/add-item')} activeOpacity={0.7}>
-          <Feather name="plus" size={20} color={colors.surface} />
+        <TouchableOpacity testID="add-item-btn" style={s.addBtn} onPress={() => router.push('/add-item')} activeOpacity={0.6}>
+          <Feather name="plus" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -96,33 +94,31 @@ export default function InventoryScreen() {
         horizontal
         data={FILTERS}
         showsHorizontalScrollIndicator={false}
-        style={styles.filterList}
-        contentContainerStyle={styles.filterContent}
+        style={s.filterList}
+        contentContainerStyle={s.filterContent}
         renderItem={({ item: f }) => (
           <TouchableOpacity
             testID={`filter-${f.toLowerCase()}`}
-            style={[styles.filterChip, filter === f && styles.filterChipActive]}
+            style={[s.filterChip, filter === f && s.filterActive]}
             onPress={() => setFilter(f)}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
           >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
+            <Text style={[s.filterText, filter === f && s.filterActiveText]}>{f}</Text>
           </TouchableOpacity>
         )}
         keyExtractor={(item) => item}
       />
 
-      {/* Items List */}
+      {/* List */}
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
+        <View style={s.center}><ActivityIndicator size="large" color={colors.accent} /></View>
       ) : items.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Feather name="archive" size={48} color={colors.textTertiary} />
-          <Text style={styles.emptyTitle}>No items yet</Text>
-          <Text style={styles.emptyText}>Add your first item to start tracking</Text>
-          <TouchableOpacity testID="empty-add-btn" style={styles.emptyBtn} onPress={() => router.push('/add-item')} activeOpacity={0.7}>
-            <Text style={styles.emptyBtnText}>Add Item</Text>
+        <View style={s.emptyState}>
+          <View style={s.emptyIcon}><Feather name="archive" size={32} color={colors.textTertiary} /></View>
+          <Text style={s.emptyTitle}>No items yet</Text>
+          <Text style={s.emptyText}>Add your first item to start tracking</Text>
+          <TouchableOpacity testID="empty-add-btn" style={s.emptyBtn} onPress={() => router.push('/add-item')} activeOpacity={0.6}>
+            <Text style={s.emptyBtnText}>Add Item</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -130,63 +126,68 @@ export default function InventoryScreen() {
           data={items}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={s.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchItems(); }} tintColor={colors.accent} />}
+          ItemSeparatorComponent={() => <View style={{ height: 2 }} />}
         />
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.containerPadding, marginBottom: 12 },
-  title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 28, color: colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontFamily: 'Mulish_400Regular', fontSize: 14, color: colors.textSecondary, marginTop: 2 },
-  addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  filterList: { maxHeight: 44, marginBottom: 12 },
-  filterContent: { paddingHorizontal: spacing.containerPadding, gap: 8 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: borderRadius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterText: { fontFamily: 'Mulish_600SemiBold', fontSize: 14, color: colors.textSecondary },
-  filterTextActive: { color: colors.surface },
+
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: spacing.containerPadding, marginBottom: 16 },
+  title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 30, color: colors.textPrimary, letterSpacing: -0.6 },
+  subtitle: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textTertiary, marginTop: 2 },
+  addBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center' },
+
+  filterList: { maxHeight: 40, marginBottom: 14 },
+  filterContent: { paddingHorizontal: spacing.containerPadding, gap: 6 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: borderRadius.pill, backgroundColor: colors.surface },
+  filterActive: { backgroundColor: colors.textPrimary },
+  filterText: { fontFamily: 'Mulish_600SemiBold', fontSize: 13, color: colors.textSecondary },
+  filterActiveText: { color: '#FFFFFF' },
+
   listContent: { paddingHorizontal: spacing.containerPadding, paddingBottom: 24 },
   itemCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.m,
     padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.divider,
-    gap: 12,
+    gap: 14,
+    ...shadows.subtle,
   },
-  itemPhotoPlaceholder: {
-    width: 56,
-    height: 56,
+  itemPhoto: {
+    width: 64,
+    height: 64,
     borderRadius: borderRadius.s,
     backgroundColor: colors.surfaceHighlight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemInfo: { flex: 1, gap: 3 },
-  itemTitle: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.textPrimary },
-  itemBrand: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textSecondary },
-  itemChips: { flexDirection: 'row', gap: 4, marginTop: 2, flexWrap: 'wrap' },
-  healthBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: borderRadius.pill },
-  healthBadgeText: { fontFamily: 'Mulish_600SemiBold', fontSize: 11 },
-  platformBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: borderRadius.pill },
-  platformBadgeText: { fontFamily: 'Mulish_600SemiBold', fontSize: 10 },
-  itemRight: { alignItems: 'flex-end', gap: 2 },
-  itemPrice: { fontFamily: 'Mulish_700Bold', fontSize: 16, color: colors.textPrimary },
-  itemProfit: { fontFamily: 'SpaceMono_400Regular', fontSize: 13 },
-  itemDays: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textTertiary },
-  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingBottom: 80 },
+  itemBody: { flex: 1, justifyContent: 'center', gap: 8 },
+  itemTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  itemTitleArea: { flex: 1, marginRight: 12 },
+  itemTitle: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.textPrimary, lineHeight: 20 },
+  itemBrand: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  itemPriceArea: { alignItems: 'flex-end' },
+  itemPrice: { fontFamily: 'Mulish_700Bold', fontSize: 17, color: colors.textPrimary, letterSpacing: -0.3 },
+  itemProfit: { fontFamily: 'SpaceMono_400Regular', fontSize: 12, marginTop: 2 },
+
+  itemBottomRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  healthDot: { width: 6, height: 6, borderRadius: 3 },
+  healthText: { fontFamily: 'Mulish_600SemiBold', fontSize: 11, color: colors.textSecondary, marginRight: 4 },
+  platformText: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: colors.textTertiary },
+  daysText: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: colors.textTertiary, marginLeft: 'auto' },
+
+  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   emptyTitle: { fontFamily: 'Mulish_700Bold', fontSize: 20, color: colors.textPrimary },
-  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textSecondary },
-  emptyBtn: { marginTop: 8, backgroundColor: colors.primary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: borderRadius.pill },
-  emptyBtnText: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.surface },
+  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 14, color: colors.textSecondary },
+  emptyBtn: { marginTop: 12, backgroundColor: colors.textPrimary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: borderRadius.pill },
+  emptyBtnText: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: '#FFFFFF' },
 });

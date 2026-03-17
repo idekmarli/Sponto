@@ -1,19 +1,21 @@
 export const colors = {
-  background: '#F9F8F6',
+  background: '#F7F6F3',
   surface: '#FFFFFF',
-  surfaceHighlight: '#F2F0ED',
-  textPrimary: '#1C1C1E',
-  textSecondary: '#6E6E73',
-  textTertiary: '#AEAEB2',
+  surfaceHighlight: '#F0EDE8',
+  surfaceElevated: '#FAFAF8',
+  textPrimary: '#1A1A1C',
+  textSecondary: '#78787C',
+  textTertiary: '#B0B0B4',
   primary: '#2C2C2E',
-  accent: '#8C7B70',
-  success: '#7A8C75',
-  warning: '#BC7C68',
-  error: '#A64444',
-  border: '#E5E5EA',
-  divider: '#F0F0F0',
-  profit: '#7A8C75',
-  loss: '#BC7C68',
+  accent: '#9A8577',
+  success: '#6B7F66',
+  warning: '#B8725C',
+  error: '#9E3B3B',
+  border: '#EAEAE6',
+  divider: '#F0EDE8',
+  profit: '#6B7F66',
+  loss: '#B8725C',
+  cardBg: '#FFFFFF',
 };
 
 export const spacing = {
@@ -23,47 +25,61 @@ export const spacing = {
   l: 24,
   xl: 32,
   xxl: 48,
-  containerPadding: 20,
-  cardPadding: 16,
+  xxxl: 64,
+  containerPadding: 22,
+  cardPadding: 18,
+  sectionGap: 28,
 };
 
 export const borderRadius = {
-  s: 4,
-  m: 12,
-  l: 16,
+  xs: 6,
+  s: 8,
+  m: 14,
+  l: 18,
   xl: 24,
   pill: 9999,
 };
 
 export const shadows = {
   subtle: {
-    boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.05)',
+    boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.04)',
+    elevation: 1,
+  },
+  card: {
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.06)',
     elevation: 2,
   },
   medium: {
-    boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.1)',
-    elevation: 5,
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.08)',
+    elevation: 4,
+  },
+  strong: {
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.12)',
+    elevation: 6,
   },
 };
 
 export const typography = {
-  display: { fontSize: 42, lineHeight: 48, letterSpacing: -1 },
-  h1: { fontSize: 32, lineHeight: 38, letterSpacing: -0.5 },
-  h2: { fontSize: 24, lineHeight: 30 },
-  h3: { fontSize: 20, lineHeight: 26 },
-  body: { fontSize: 16, lineHeight: 22 },
-  caption: { fontSize: 14, lineHeight: 20 },
-  small: { fontSize: 12, lineHeight: 16 },
+  displayLg: { fontSize: 48, lineHeight: 52, letterSpacing: -1.5 },
+  display: { fontSize: 38, lineHeight: 42, letterSpacing: -1 },
+  h1: { fontSize: 30, lineHeight: 36, letterSpacing: -0.6 },
+  h2: { fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
+  h3: { fontSize: 18, lineHeight: 24 },
+  body: { fontSize: 15, lineHeight: 22 },
+  bodySmall: { fontSize: 14, lineHeight: 20 },
+  caption: { fontSize: 13, lineHeight: 18 },
+  small: { fontSize: 11, lineHeight: 15 },
+  micro: { fontSize: 10, lineHeight: 13 },
 };
 
 export const platformColors: Record<string, string> = {
-  ebay: '#E53238',
-  depop: '#FF2300',
-  vinted: '#09B1BA',
-  vestiaire: '#1A1A1A',
-  poshmark: '#7F0353',
-  etsy: '#F1641E',
-  custom: '#8C7B70',
+  ebay: '#86868B',
+  depop: '#86868B',
+  vinted: '#86868B',
+  vestiaire: '#86868B',
+  poshmark: '#86868B',
+  etsy: '#86868B',
+  custom: '#86868B',
 };
 
 export const statusLabels: Record<string, string> = {
@@ -79,7 +95,7 @@ export const statusLabels: Record<string, string> = {
 
 export const healthLabels: Record<string, { label: string; color: string }> = {
   fresh: { label: 'Fresh', color: colors.success },
-  needs_listing: { label: 'Needs Listing', color: colors.warning },
+  needs_listing: { label: 'Needs Listing', color: colors.accent },
   incomplete: { label: 'Incomplete', color: colors.textTertiary },
   stale: { label: 'Stale', color: colors.warning },
   dead_stock: { label: 'Dead Stock', color: colors.error },

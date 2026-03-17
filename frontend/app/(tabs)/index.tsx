@@ -20,59 +20,54 @@ interface DashboardData {
   total_items: number;
 }
 
-function MetricCard({ label, value, prefix = '', suffix = '', accent = false, testID }: { label: string; value: string | number; prefix?: string; suffix?: string; accent?: boolean; testID: string }) {
-  return (
-    <View testID={testID} style={[styles.metricCard, accent && styles.metricCardAccent]}>
-      <Text style={[styles.metricLabel, accent && styles.metricLabelAccent]}>{label}</Text>
-      <Text style={[styles.metricValue, accent && styles.metricValueAccent]}>
-        {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
-      </Text>
-    </View>
-  );
-}
-
 function TrendChart({ data }: { data: Array<{ month: string; profit: number }> }) {
   const maxVal = Math.max(...data.map(d => Math.abs(d.profit)), 1);
   return (
-    <View testID="profit-trend-chart" style={styles.trendChart}>
-      <View style={styles.trendBars}>
-        {data.map((d, i) => {
-          const height = Math.max((Math.abs(d.profit) / maxVal) * 60, 4);
-          const isPositive = d.profit >= 0;
-          return (
-            <View key={i} style={styles.trendBarWrap}>
-              <View style={[styles.trendBar, { height, backgroundColor: isPositive ? colors.success : colors.warning }]} />
-              <Text style={styles.trendBarLabel}>{d.month}</Text>
+    <View testID="profit-trend-chart" style={trendStyles.container}>
+      {data.map((d, i) => {
+        const height = Math.max((Math.abs(d.profit) / maxVal) * 56, 3);
+        const isPositive = d.profit >= 0;
+        const isLast = i === data.length - 1;
+        return (
+          <View key={i} style={trendStyles.col}>
+            <View style={trendStyles.barArea}>
+              <View style={[
+                trendStyles.bar,
+                {
+                  height,
+                  backgroundColor: isLast ? colors.textPrimary : isPositive ? colors.success : colors.warning,
+                  opacity: isLast ? 1 : 0.35 + (i / data.length) * 0.65,
+                },
+              ]} />
             </View>
-          );
-        })}
-      </View>
+            <Text style={[trendStyles.label, isLast && trendStyles.labelActive]}>{d.month}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
-function ActionItem({ action, onPress }: { action: any; onPress: () => void }) {
+function ActionItem({ action, onPress, isLast }: { action: any; onPress: () => void; isLast: boolean }) {
   const iconMap: Record<string, string> = {
-    needs_listing: 'tag',
-    stale: 'clock',
-    dead_stock: 'alert-triangle',
-    incomplete: 'edit-3',
-    cleanup: 'check-circle',
+    needs_listing: 'tag', stale: 'clock', dead_stock: 'alert-triangle',
+    incomplete: 'edit-3', cleanup: 'check-circle',
   };
   const colorMap: Record<string, string> = {
-    needs_listing: colors.accent,
-    stale: colors.warning,
-    dead_stock: colors.error,
-    incomplete: colors.textTertiary,
-    cleanup: colors.success,
+    needs_listing: colors.accent, stale: colors.warning, dead_stock: colors.error,
+    incomplete: colors.textTertiary, cleanup: colors.success,
+  };
+  const bgMap: Record<string, string> = {
+    needs_listing: '#F5F0EC', stale: '#F7EFEB', dead_stock: '#F5EAEA',
+    incomplete: '#F0F0F0', cleanup: '#EFF3EE',
   };
   return (
-    <TouchableOpacity testID={`action-${action.type}`} style={styles.actionItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.actionDot, { backgroundColor: colorMap[action.type] || colors.accent }]}>
-        <Feather name={(iconMap[action.type] || 'info') as any} size={14} color={colors.surface} />
+    <TouchableOpacity testID={`action-${action.type}`} style={[actionStyles.item, !isLast && actionStyles.itemBorder]} onPress={onPress} activeOpacity={0.6}>
+      <View style={[actionStyles.icon, { backgroundColor: bgMap[action.type] || '#F0F0F0' }]}>
+        <Feather name={(iconMap[action.type] || 'info') as any} size={13} color={colorMap[action.type] || colors.accent} />
       </View>
-      <Text style={styles.actionText} numberOfLines={2}>{action.message}</Text>
-      <Feather name="chevron-right" size={16} color={colors.textTertiary} />
+      <Text style={actionStyles.text} numberOfLines={2}>{action.message}</Text>
+      <Feather name="chevron-right" size={14} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -85,37 +80,23 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
-    try {
-      const d = await api.getDashboard();
-      setData(d);
-    } catch (e) {
-      console.error('Dashboard fetch error:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    try { setData(await api.getDashboard()); }
+    catch (e) { console.error('Dashboard fetch error:', e); }
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const onRefresh = () => { setRefreshing(true); fetchData(); };
-
   if (loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={colors.accent} />
-      </View>
-    );
+    return <View style={[s.container, s.center]}><ActivityIndicator size="large" color={colors.accent} /></View>;
   }
 
   if (!data) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Feather name="wifi-off" size={32} color={colors.textTertiary} />
-        <Text style={styles.emptyText}>Unable to load dashboard</Text>
-        <TouchableOpacity testID="retry-btn" style={styles.retryBtn} onPress={fetchData}>
-          <Text style={styles.retryBtnText}>Retry</Text>
-        </TouchableOpacity>
+      <View style={[s.container, s.center]}>
+        <Feather name="wifi-off" size={28} color={colors.textTertiary} />
+        <Text style={s.emptyText}>Unable to load</Text>
+        <TouchableOpacity testID="retry-btn" style={s.retryBtn} onPress={fetchData}><Text style={s.retryBtnText}>Retry</Text></TouchableOpacity>
       </View>
     );
   }
@@ -123,185 +104,218 @@ export default function HomeScreen() {
   return (
     <ScrollView
       testID="home-screen"
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      style={s.container}
+      contentContainerStyle={[s.content, { paddingTop: insets.top + 20 }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.accent} />}
     >
       {/* Header */}
-      <View style={styles.header}>
+      <View style={s.header}>
         <View>
-          <Text style={styles.greeting}>Resellr OS</Text>
-          <Text style={styles.subGreeting}>Your command center</Text>
+          <Text style={s.brandName}>Resellr</Text>
+          <Text style={s.brandTag}>OS</Text>
         </View>
-        <TouchableOpacity testID="settings-btn" onPress={() => router.push('/settings')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <View style={styles.settingsBtn}>
-            <Feather name="settings" size={20} color={colors.textPrimary} />
+        <TouchableOpacity testID="settings-btn" onPress={() => router.push('/settings')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <View style={s.settingsBtn}>
+            <Feather name="settings" size={18} color={colors.textSecondary} />
           </View>
         </TouchableOpacity>
       </View>
 
-      {/* Hero Metric */}
-      <View testID="hero-profit" style={styles.heroCard}>
-        <Text style={styles.heroLabel}>Net Profit This Month</Text>
-        <Text style={styles.heroValue}>
-          ${data.monthly_net_profit.toLocaleString()}
+      {/* Hero Profit Card */}
+      <View testID="hero-profit" style={s.heroCard}>
+        <View style={s.heroTop}>
+          <Text style={s.heroLabel}>Net Profit</Text>
+          <Text style={s.heroPeriod}>This Month</Text>
+        </View>
+        <Text style={s.heroValue}>
+          <Text style={s.heroCurrency}>$</Text>{data.monthly_net_profit.toLocaleString()}
         </Text>
-        <View style={styles.heroSubRow}>
-          <Text style={styles.heroSubText}>${data.monthly_revenue.toLocaleString()} revenue</Text>
-          <View style={styles.heroDivider} />
-          <Text style={styles.heroSubText}>{data.sold_this_month} sold</Text>
+        <View style={s.heroBottom}>
+          <View style={s.heroStat}>
+            <Text style={s.heroStatValue}>${data.monthly_revenue.toLocaleString()}</Text>
+            <Text style={s.heroStatLabel}>revenue</Text>
+          </View>
+          <View style={s.heroStatDivider} />
+          <View style={s.heroStat}>
+            <Text style={s.heroStatValue}>{data.sold_this_month}</Text>
+            <Text style={s.heroStatLabel}>sold</Text>
+          </View>
+          <View style={s.heroStatDivider} />
+          <View style={s.heroStat}>
+            <Text style={s.heroStatValue}>{data.active_listings}</Text>
+            <Text style={s.heroStatLabel}>active</Text>
+          </View>
         </View>
       </View>
 
-      {/* Key Metrics Grid */}
-      <View style={styles.metricsGrid}>
-        <MetricCard testID="metric-active" label="Active Listings" value={data.active_listings} />
-        <MetricCard testID="metric-capital" label="Capital Locked" value={data.capital_in_inventory} prefix="$" />
-        <MetricCard testID="metric-deadstock" label="Dead Stock" value={data.dead_stock_count} accent={data.dead_stock_count > 0} />
-        <MetricCard testID="metric-total" label="Total Items" value={data.total_items} />
+      {/* Metrics Row */}
+      <View style={s.metricsRow}>
+        <View testID="metric-capital" style={s.metricCard}>
+          <Text style={s.metricLabel}>Capital Locked</Text>
+          <Text style={s.metricValue}>${data.capital_in_inventory.toLocaleString()}</Text>
+        </View>
+        <View testID="metric-total" style={s.metricCard}>
+          <Text style={s.metricLabel}>Total Items</Text>
+          <Text style={s.metricValue}>{data.total_items}</Text>
+        </View>
+        <View testID="metric-deadstock" style={[s.metricCard, data.dead_stock_count > 0 && s.metricCardWarn]}>
+          <Text style={[s.metricLabel, data.dead_stock_count > 0 && { color: colors.warning }]}>Dead Stock</Text>
+          <Text style={[s.metricValue, data.dead_stock_count > 0 && { color: colors.warning }]}>{data.dead_stock_count}</Text>
+        </View>
       </View>
 
-      {/* Best This Month */}
+      {/* Highlights */}
       {(data.best_platform || data.best_category) && (
-        <View style={styles.bestRow}>
+        <View style={s.highlightsRow}>
           {data.best_platform && (
-            <View testID="best-platform" style={styles.bestCard}>
-              <Text style={styles.bestLabel}>Best Platform</Text>
-              <Text style={styles.bestValue}>{data.best_platform.charAt(0).toUpperCase() + data.best_platform.slice(1)}</Text>
+            <View testID="best-platform" style={s.highlightCard}>
+              <Feather name="award" size={14} color={colors.accent} />
+              <View>
+                <Text style={s.highlightLabel}>Top Platform</Text>
+                <Text style={s.highlightValue}>{data.best_platform.charAt(0).toUpperCase() + data.best_platform.slice(1)}</Text>
+              </View>
             </View>
           )}
           {data.best_category && (
-            <View testID="best-category" style={styles.bestCard}>
-              <Text style={styles.bestLabel}>Best Category</Text>
-              <Text style={styles.bestValue}>{data.best_category}</Text>
+            <View testID="best-category" style={s.highlightCard}>
+              <Feather name="trending-up" size={14} color={colors.success} />
+              <View>
+                <Text style={s.highlightLabel}>Top Category</Text>
+                <Text style={s.highlightValue}>{data.best_category}</Text>
+              </View>
             </View>
           )}
         </View>
       )}
 
       {/* Profit Trend */}
-      {data.trends && data.trends.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profit Trend</Text>
-          <View style={styles.card}>
+      {data.trends?.length > 0 && (
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>Profit Trend</Text>
+            <Text style={s.sectionSub}>6 months</Text>
+          </View>
+          <View style={s.card}>
             <TrendChart data={data.trends} />
           </View>
         </View>
       )}
 
       {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity testID="quick-add" style={styles.quickAction} onPress={() => router.push('/add-item')} activeOpacity={0.7}>
-            <View style={styles.quickActionIcon}>
-              <Feather name="plus" size={22} color={colors.surface} />
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Quick Actions</Text>
+        <View style={s.quickRow}>
+          <TouchableOpacity testID="quick-add" style={s.quickCard} onPress={() => router.push('/add-item')} activeOpacity={0.6}>
+            <View style={[s.quickIcon, { backgroundColor: colors.textPrimary }]}>
+              <Feather name="plus" size={20} color={colors.surface} />
             </View>
-            <Text style={styles.quickActionLabel}>Add Item</Text>
+            <Text style={s.quickLabel}>Add Item</Text>
           </TouchableOpacity>
-          <TouchableOpacity testID="quick-source" style={styles.quickAction} onPress={() => router.push('/(tabs)/source')} activeOpacity={0.7}>
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.accent }]}>
-              <Feather name="target" size={22} color={colors.surface} />
+          <TouchableOpacity testID="quick-source" style={s.quickCard} onPress={() => router.push('/(tabs)/source')} activeOpacity={0.6}>
+            <View style={[s.quickIcon, { backgroundColor: colors.accent }]}>
+              <Feather name="target" size={20} color={colors.surface} />
             </View>
-            <Text style={styles.quickActionLabel}>Source Calc</Text>
+            <Text style={s.quickLabel}>Source Calc</Text>
           </TouchableOpacity>
-          <TouchableOpacity testID="quick-deadstock" style={styles.quickAction} onPress={() => router.push('/deadstock')} activeOpacity={0.7}>
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.warning }]}>
-              <Feather name="alert-triangle" size={22} color={colors.surface} />
+          <TouchableOpacity testID="quick-deadstock" style={s.quickCard} onPress={() => router.push('/deadstock')} activeOpacity={0.6}>
+            <View style={[s.quickIcon, { backgroundColor: colors.warning }]}>
+              <Feather name="alert-triangle" size={20} color={colors.surface} />
             </View>
-            <Text style={styles.quickActionLabel}>Dead Stock</Text>
+            <Text style={s.quickLabel}>Dead Stock</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Weekly Action Feed */}
-      {data.actions && data.actions.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Action Feed</Text>
-          <View style={styles.card}>
-            {data.actions.slice(0, 6).map((action, i) => (
-              <React.Fragment key={i}>
-                <ActionItem action={action} onPress={() => router.push(`/item/${action.item_id}`)} />
-                {i < Math.min(data.actions.length, 6) - 1 && <View style={styles.divider} />}
-              </React.Fragment>
+      {/* Action Feed */}
+      {data.actions?.length > 0 && (
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>Action Feed</Text>
+            <Text style={s.sectionSub}>{data.actions.length} items</Text>
+          </View>
+          <View style={s.card}>
+            {data.actions.slice(0, 5).map((action, i) => (
+              <ActionItem key={i} action={action} onPress={() => router.push(`/item/${action.item_id}`)} isLast={i === Math.min(data.actions.length, 5) - 1} />
             ))}
           </View>
         </View>
       )}
 
-      <View style={{ height: 32 }} />
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const trendStyles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 90, paddingTop: 8 },
+  col: { flex: 1, alignItems: 'center', gap: 8 },
+  barArea: { justifyContent: 'flex-end', height: 60 },
+  bar: { width: 22, borderRadius: 6 },
+  label: { fontFamily: 'SpaceMono_400Regular', fontSize: 10, color: colors.textTertiary, letterSpacing: 0.5 },
+  labelActive: { color: colors.textPrimary, fontFamily: 'SpaceMono_400Regular' },
+});
+
+const actionStyles = StyleSheet.create({
+  item: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 14 },
+  itemBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+  icon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  text: { flex: 1, fontFamily: 'Mulish_400Regular', fontSize: 14, color: colors.textPrimary, lineHeight: 20 },
+});
+
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: spacing.containerPadding },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.l },
-  greeting: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 28, color: colors.textPrimary, letterSpacing: -0.5 },
-  subGreeting: { fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textSecondary, marginTop: 2 },
-  settingsBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sectionGap },
+  brandName: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 34, color: colors.textPrimary, letterSpacing: -0.8, lineHeight: 38 },
+  brandTag: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textTertiary, letterSpacing: 3, textTransform: 'uppercase', marginTop: -2 },
+  settingsBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
+
   heroCard: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.l,
-    padding: spacing.l,
+    backgroundColor: colors.textPrimary,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
     marginBottom: spacing.l,
-    ...shadows.medium,
+    ...shadows.strong,
   },
-  heroLabel: { fontFamily: 'Mulish_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.6)', marginBottom: 8 },
-  heroValue: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 42, color: colors.surface, letterSpacing: -1, marginBottom: 12 },
-  heroSubRow: { flexDirection: 'row', alignItems: 'center' },
-  heroSubText: { fontFamily: 'Mulish_400Regular', fontSize: 14, color: 'rgba(255,255,255,0.5)' },
-  heroDivider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 12 },
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: spacing.l },
-  metricCard: {
-    width: '47%' as any,
-    flexGrow: 1,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.m,
-    padding: spacing.cardPadding,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  metricCardAccent: { borderColor: colors.warning, backgroundColor: '#FDF8F6' },
-  metricLabel: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textSecondary, marginBottom: 6 },
-  metricLabelAccent: { color: colors.warning },
-  metricValue: { fontFamily: 'Mulish_700Bold', fontSize: 24, color: colors.textPrimary },
-  metricValueAccent: { color: colors.warning },
-  bestRow: { flexDirection: 'row', gap: 12, marginBottom: spacing.l },
-  bestCard: {
-    flex: 1,
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.m,
-    padding: spacing.cardPadding,
-  },
-  bestLabel: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
-  bestValue: { fontFamily: 'Mulish_700Bold', fontSize: 16, color: colors.textPrimary },
-  section: { marginBottom: spacing.l },
-  sectionTitle: { fontFamily: 'Mulish_700Bold', fontSize: 18, color: colors.textPrimary, marginBottom: 12 },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
-    padding: spacing.cardPadding,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  quickActionsRow: { flexDirection: 'row', gap: 12 },
-  quickAction: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.m, padding: spacing.m, borderWidth: 1, borderColor: colors.divider },
-  quickActionIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  quickActionLabel: { fontFamily: 'Mulish_600SemiBold', fontSize: 13, color: colors.textPrimary, textAlign: 'center' },
-  trendChart: { paddingVertical: 8 },
-  trendBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 80 },
-  trendBarWrap: { alignItems: 'center', flex: 1, gap: 6 },
-  trendBar: { width: 24, borderRadius: 4, minHeight: 4 },
-  trendBarLabel: { fontFamily: 'SpaceMono_400Regular', fontSize: 11, color: colors.textTertiary },
-  actionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
-  actionDot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  actionText: { flex: 1, fontFamily: 'Mulish_400Regular', fontSize: 14, color: colors.textPrimary, lineHeight: 20 },
-  divider: { height: 1, backgroundColor: colors.divider },
-  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 16, color: colors.textSecondary, marginTop: 12 },
+  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  heroLabel: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5, textTransform: 'uppercase' },
+  heroPeriod: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.3)' },
+  heroValue: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 52, color: '#FFFFFF', letterSpacing: -2, lineHeight: 56, marginBottom: 20 },
+  heroCurrency: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 32, color: 'rgba(255,255,255,0.5)' },
+  heroBottom: { flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 16 },
+  heroStat: { flex: 1 },
+  heroStatValue: { fontFamily: 'Mulish_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.85)', marginBottom: 2 },
+  heroStatLabel: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: 0.5 },
+  heroStatDivider: { width: StyleSheet.hairlineWidth, height: 28, backgroundColor: 'rgba(255,255,255,0.1)' },
+
+  metricsRow: { flexDirection: 'row', gap: 10, marginBottom: spacing.l },
+  metricCard: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.m, paddingVertical: 16, paddingHorizontal: 14, ...shadows.subtle },
+  metricCardWarn: { backgroundColor: '#FAF4F1' },
+  metricLabel: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: colors.textSecondary, letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 6 },
+  metricValue: { fontFamily: 'Mulish_700Bold', fontSize: 22, color: colors.textPrimary, letterSpacing: -0.3 },
+
+  highlightsRow: { flexDirection: 'row', gap: 10, marginBottom: spacing.sectionGap },
+  highlightCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surfaceHighlight, borderRadius: borderRadius.m, paddingVertical: 14, paddingHorizontal: 14 },
+  highlightLabel: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: colors.textSecondary, letterSpacing: 0.2 },
+  highlightValue: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.textPrimary, marginTop: 1 },
+
+  section: { marginBottom: spacing.sectionGap },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 },
+  sectionTitle: { fontFamily: 'Mulish_700Bold', fontSize: 17, color: colors.textPrimary, letterSpacing: -0.2 },
+  sectionSub: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textTertiary },
+  card: { backgroundColor: colors.surface, borderRadius: borderRadius.l, paddingHorizontal: 18, paddingVertical: 6, ...shadows.card },
+
+  quickRow: { flexDirection: 'row', gap: 10 },
+  quickCard: { flex: 1, alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: borderRadius.m, paddingVertical: 20, ...shadows.card },
+  quickIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  quickLabel: { fontFamily: 'Mulish_600SemiBold', fontSize: 12, color: colors.textPrimary, letterSpacing: 0.1 },
+
+  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textSecondary, marginTop: 12 },
   retryBtn: { marginTop: 16, backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: borderRadius.pill },
   retryBtnText: { fontFamily: 'Mulish_700Bold', fontSize: 14, color: colors.surface },
 });
