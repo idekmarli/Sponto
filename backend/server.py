@@ -1237,10 +1237,9 @@ async def update_settings(data: dict):
 
 @api_router.post("/seed")
 async def seed_data():
-    existing = await db.items.count_documents({})
-    if existing > 0:
-        return {"message": "Data already seeded", "count": existing}
-
+    # Clear existing data first
+    await db.items.delete_many({})
+    
     now = datetime.now(timezone.utc)
     mock_items = [
         {"title": "Acne Studios Musubi Bag", "brand": "Acne Studios", "category": "Bags", "size": "OS", "condition": "Excellent", "source": "Consignment", "purchase_price": 120, "shipping_to_acquire": 12, "prep_cost": 5, "target_list_price": 340, "sold_price": 310, "fees": 41, "packaging_cost": 3, "date_acquired": (now - timedelta(days=65)).isoformat(), "date_listed": (now - timedelta(days=55)).isoformat(), "date_sold": (now - timedelta(days=8)).isoformat(), "status": "completed", "platforms": ["vestiaire", "depop"], "notes": "Minor scuff on bottom — mentioned in listing"},
@@ -1260,11 +1259,28 @@ async def seed_data():
         {"title": "Dries Van Noten Silk Scarf", "brand": "Dries Van Noten", "category": "Accessories", "size": "OS", "condition": "New with Tags", "source": "Thrift Store", "purchase_price": 5, "shipping_to_acquire": 0, "prep_cost": 0, "target_list_price": 75, "sold_price": 68, "fees": 7, "packaging_cost": 2, "date_acquired": (now - timedelta(days=20)).isoformat(), "date_listed": (now - timedelta(days=16)).isoformat(), "date_sold": (now - timedelta(days=2)).isoformat(), "status": "sold", "platforms": ["etsy", "depop"], "notes": "Beautiful print — sold fast"},
     ]
 
+    # Sample product photos from Unsplash
+    SAMPLE_PHOTOS = {
+        "Bags": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=400&fit=crop",
+        "Footwear": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
+        "Tops": "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=400&h=400&fit=crop",
+        "Knitwear": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=400&fit=crop",
+        "Outerwear": "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=400&fit=crop",
+        "Trousers": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&h=400&fit=crop",
+        "Dresses": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=400&fit=crop",
+        "Accessories": "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop",
+    }
+
     for item in mock_items:
         item["id"] = make_id()
         item["created_at"] = now_iso()
         item["updated_at"] = now_iso()
-        item["photos"] = []
+        category = item.get("category", "Accessories")
+        # Add photo based on category (except for sourced items)
+        if item.get("status") != "sourced":
+            item["photos"] = [SAMPLE_PHOTOS.get(category, SAMPLE_PHOTOS["Accessories"])]
+        else:
+            item["photos"] = []
         item["is_draft"] = False
 
     await db.items.insert_many(mock_items)
