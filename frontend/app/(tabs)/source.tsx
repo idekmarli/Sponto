@@ -3,11 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Keyboa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, buttonStyles } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { store } from '../../src/store';
-import { Badge } from '../../src/components/UI';
 
 const PLATFORMS = ['eBay', 'Depop', 'Vinted', 'Vestiaire', 'Poshmark', 'Etsy'];
 const CATEGORIES = ['Bags', 'Outerwear', 'Knitwear', 'Footwear', 'Accessories', 'Dresses', 'Tops', 'Trousers'];
@@ -30,9 +29,9 @@ interface CalcResult {
 }
 
 const VERDICT_CONFIG = {
-  buy: { label: 'Buy', icon: 'check' as const, color: colors.success, bgDark: '#3A5A40' },
-  risky: { label: 'Risky', icon: 'alert-circle' as const, color: colors.warning, bgDark: '#8A5A3A' },
-  skip: { label: 'Skip', icon: 'x' as const, color: colors.error, bgDark: '#6A3838' },
+  buy: { label: 'BUY', icon: 'check', color: colors.success, bgDark: '#2D4A2D' },
+  risky: { label: 'RISKY', icon: 'alert-triangle', color: colors.warning, bgDark: '#5C3A1D' },
+  skip: { label: 'SKIP', icon: 'x', color: colors.error, bgDark: '#4A2020' },
 };
 
 const CONFIDENCE_MESSAGES: Record<string, string> = {
@@ -109,7 +108,7 @@ export default function SourceScreen() {
       <ScrollView
         testID="source-screen"
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[4] }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[4], paddingBottom: insets.bottom + space[8] }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -231,13 +230,13 @@ export default function SourceScreen() {
         {/* Calculate Button */}
         <TouchableOpacity
           testID="calculate-btn"
-          style={[styles.calcButton, !canCalculate && styles.calcButtonDisabled]}
+          style={[buttonStyles.primary, !canCalculate && styles.calcButtonDisabled]}
           onPress={calculate}
           disabled={!canCalculate || calculating}
           activeOpacity={0.8}
         >
           <Feather name="zap" size={18} color={colors.textInverse} />
-          <Text style={styles.calcButtonText}>
+          <Text style={buttonStyles.primaryText}>
             {calculating ? 'Analyzing...' : 'Analyze Deal'}
           </Text>
         </TouchableOpacity>
@@ -245,43 +244,49 @@ export default function SourceScreen() {
         {/* Results */}
         {result && (
           <View testID="source-result" style={styles.resultArea}>
-            {/* Hero Verdict Card */}
+            {/* ─── HERO VERDICT CARD ─── */}
             <View style={[styles.verdictCard, { backgroundColor: VERDICT_CONFIG[result.verdict].bgDark }]}>
-              <View style={styles.verdictIconWrap}>
-                <Feather name={VERDICT_CONFIG[result.verdict].icon} size={32} color={colors.textInverse} />
+              <View style={styles.verdictTop}>
+                <View style={styles.verdictIconWrap}>
+                  <Feather name={VERDICT_CONFIG[result.verdict].icon as any} size={28} color={colors.textInverse} />
+                </View>
+                <Text style={styles.verdictLabel}>{VERDICT_CONFIG[result.verdict].label}</Text>
               </View>
-              <Text style={styles.verdictLabel}>{VERDICT_CONFIG[result.verdict].label}</Text>
               <Text style={styles.verdictMessage}>
                 {CONFIDENCE_MESSAGES[result.confidence] || result.confidence}
               </Text>
+              
+              {/* Key Numbers in Verdict */}
+              <View style={styles.verdictNumbers}>
+                <View style={styles.verdictStat}>
+                  <Text style={styles.verdictStatValue}>{formatAmount(result.net_profit)}</Text>
+                  <Text style={styles.verdictStatLabel}>Profit</Text>
+                </View>
+                <View style={styles.verdictStatDivider} />
+                <View style={styles.verdictStat}>
+                  <Text style={styles.verdictStatValue}>{result.roi}%</Text>
+                  <Text style={styles.verdictStatLabel}>ROI</Text>
+                </View>
+                <View style={styles.verdictStatDivider} />
+                <View style={styles.verdictStat}>
+                  <Text style={styles.verdictStatValue}>{result.margin}%</Text>
+                  <Text style={styles.verdictStatLabel}>Margin</Text>
+                </View>
+              </View>
             </View>
 
-            {/* Key Metrics */}
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Net Profit</Text>
-                <Text style={[styles.metricValue, { color: result.net_profit >= 0 ? colors.success : colors.error }]}>
-                  {formatAmount(result.net_profit)}
-                </Text>
-              </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>ROI</Text>
-                <Text style={[styles.metricValue, { color: result.roi >= 0 ? colors.success : colors.error }]}>
-                  {result.roi}%
-                </Text>
-              </View>
-            </View>
-
-            {/* Thresholds */}
-            <View style={styles.thresholdRow}>
+            {/* Thresholds Card */}
+            <View style={styles.thresholdCard}>
               <View style={styles.thresholdItem}>
                 <Text style={styles.thresholdLabel}>Max Buy</Text>
                 <Text style={styles.thresholdValue}>{formatAmount(result.max_buy_price)}</Text>
               </View>
+              <View style={styles.thresholdDivider} />
               <View style={styles.thresholdItem}>
                 <Text style={styles.thresholdLabel}>Break Even</Text>
                 <Text style={styles.thresholdValue}>{formatAmount(result.break_even_price)}</Text>
               </View>
+              <View style={styles.thresholdDivider} />
               <View style={styles.thresholdItem}>
                 <Text style={styles.thresholdLabel}>Min Sale</Text>
                 <Text style={styles.thresholdValue}>{formatAmount(result.min_acceptable_sale)}</Text>
@@ -296,7 +301,7 @@ export default function SourceScreen() {
                   <View style={styles.contextRow}>
                     <Text style={styles.contextLabel}>{platform}</Text>
                     <Text style={styles.contextStats}>
-                      {result.platform_context.avg_roi}% avg ROI · {result.platform_context.avg_days}d avg · {result.platform_context.total_sold} sold
+                      {result.platform_context.avg_roi}% avg · {result.platform_context.avg_days}d avg · {result.platform_context.total_sold} sold
                     </Text>
                   </View>
                 )}
@@ -304,7 +309,7 @@ export default function SourceScreen() {
                   <View style={styles.contextRow}>
                     <Text style={styles.contextLabel}>{category}</Text>
                     <Text style={styles.contextStats}>
-                      {result.category_context.avg_roi}% avg ROI · {result.category_context.avg_days}d avg · {result.category_context.total_sold} sold
+                      {result.category_context.avg_roi}% avg · {result.category_context.avg_days}d avg · {result.category_context.total_sold} sold
                     </Text>
                   </View>
                 )}
@@ -316,28 +321,26 @@ export default function SourceScreen() {
               {result.verdict === 'buy' && (
                 <TouchableOpacity
                   testID="add-to-inventory-btn"
-                  style={styles.addInventoryBtn}
+                  style={buttonStyles.success}
                   onPress={addToInventory}
                   activeOpacity={0.7}
                 >
                   <Feather name="plus" size={18} color={colors.textInverse} />
-                  <Text style={styles.addInventoryText}>Add to Inventory</Text>
+                  <Text style={buttonStyles.successText}>Add to Inventory</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 testID="reset-btn"
-                style={[styles.resetButton, result.verdict === 'buy' && { flex: 1 }]}
+                style={[buttonStyles.secondary, result.verdict !== 'buy' && { flex: 1 }]}
                 onPress={reset}
                 activeOpacity={0.6}
               >
-                <Feather name="refresh-cw" size={14} color={colors.textSecondary} />
-                <Text style={styles.resetButtonText}>New Calc</Text>
+                <Feather name="refresh-cw" size={16} color={colors.textPrimary} />
+                <Text style={buttonStyles.secondaryText}>New Calculation</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
-
-        <View style={{ height: space[8] }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -358,16 +361,11 @@ const styles = StyleSheet.create({
     marginBottom: space[6],
   },
   title: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize['3xl'],
-    color: colors.textPrimary,
-    letterSpacing: -0.8,
+    ...typography.h1,
     marginBottom: space[1],
   },
   subtitle: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.lg,
-    color: colors.textSecondary,
+    ...typography.bodyLarge,
   },
 
   // Sections
@@ -404,14 +402,16 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   chip: {
-    paddingHorizontal: space[4] + 2,
-    paddingVertical: space[2] + 3,
-    borderRadius: radius.full,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
-    ...shadows.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   chipActive: {
     backgroundColor: colors.brand,
+    borderColor: colors.brand,
   },
   chipText: {
     fontFamily: fontFamily.semibold,
@@ -425,10 +425,10 @@ const styles = StyleSheet.create({
   // Price Card
   priceCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.cardPaddingLarge,
+    borderRadius: radius.xl,
+    padding: space[5],
     marginBottom: space[4],
-    ...shadows.sm,
+    ...shadows.medium,
   },
   priceRow: {
     flexDirection: 'row',
@@ -438,13 +438,15 @@ const styles = StyleSheet.create({
   },
   priceDivider: {
     width: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: colors.border,
     marginHorizontal: space[5],
   },
   priceLabel: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: space[2],
   },
   priceInputRow: {
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     paddingVertical: space[3],
     marginBottom: space[4],
-    ...shadows.xs,
+    ...shadows.sm,
   },
   costRow: {
     flexDirection: 'row',
@@ -521,119 +523,113 @@ const styles = StyleSheet.create({
   },
 
   // Calculate Button
-  calcButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2] + 2,
-    backgroundColor: colors.brand,
-    borderRadius: radius.full,
-    height: spacing.buttonHeight,
-    marginBottom: space[8],
-    ...shadows.md,
-  },
   calcButtonDisabled: {
-    opacity: 0.35,
-  },
-  calcButtonText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.md,
-    color: colors.textInverse,
-    letterSpacing: 0.2,
+    opacity: 0.4,
   },
 
   // Result Area
   resultArea: {
-    gap: space[3] + 2,
+    gap: space[3],
+    marginTop: space[6],
   },
 
-  // Verdict Card
+  // Verdict Card - Hero
   verdictCard: {
     borderRadius: radius.xl,
-    paddingVertical: space[10],
+    paddingVertical: space[8],
+    paddingHorizontal: space[6],
     alignItems: 'center',
-    ...shadows.lg,
+    ...shadows.strong,
+  },
+  verdictTop: {
+    alignItems: 'center',
+    marginBottom: space[3],
   },
   verdictIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: space[3],
   },
   verdictLabel: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize['4xl'] + 4,
+    fontSize: fontSize['4xl'] + 8,
     color: colors.textInverse,
-    letterSpacing: -1,
-    marginBottom: space[2],
+    letterSpacing: 2,
   },
   verdictMessage: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     color: 'rgba(255,255,255,0.7)',
     textAlign: 'center',
-    paddingHorizontal: space[8],
+    marginBottom: space[6],
   },
-
-  // Metrics Grid
-  metricsGrid: {
+  verdictNumbers: {
     flexDirection: 'row',
-    gap: space[3],
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: radius.lg,
+    paddingVertical: space[4],
   },
-  metricBox: {
+  verdictStat: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.cardPadding,
     alignItems: 'center',
-    ...shadows.xs,
   },
-  metricLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-    marginBottom: space[2],
+  verdictStatDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  metricValue: {
+  verdictStatValue: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize['2xl'] + 4,
-    color: colors.textPrimary,
+    fontSize: fontSize.xl,
+    color: colors.textInverse,
     letterSpacing: -0.5,
   },
+  verdictStatLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
 
-  // Threshold Row
-  thresholdRow: {
+  // Threshold Card
+  thresholdCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    ...shadows.xs,
+    ...shadows.sm,
   },
   thresholdItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: space[3] + 2,
+    paddingVertical: space[4],
+  },
+  thresholdDivider: {
+    width: 1,
+    backgroundColor: colors.border,
   },
   thresholdLabel: {
-    fontFamily: fontFamily.regular,
+    fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
     color: colors.textTertiary,
     marginBottom: space[1],
   },
   thresholdValue: {
-    fontFamily: fontFamily.monoBold,
-    fontSize: fontSize.md,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
+    letterSpacing: -0.3,
   },
 
   // Context Card
   contextCard: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: radius.lg,
-    padding: spacing.cardPadding,
-    gap: space[2] + 2,
+    padding: space[4],
+    gap: space[2],
   },
   contextTitle: {
     fontFamily: fontFamily.bold,
@@ -660,37 +656,7 @@ const styles = StyleSheet.create({
   // Result Actions
   resultActions: {
     flexDirection: 'row',
-    gap: space[2] + 2,
-  },
-  addInventoryBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-    backgroundColor: colors.success,
-    borderRadius: radius.full,
-    paddingVertical: space[4],
-    ...shadows.md,
-  },
-  addInventoryText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.md,
-    color: colors.textInverse,
-  },
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-    paddingVertical: space[4],
-    paddingHorizontal: space[5],
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceMuted,
-  },
-  resetButtonText: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    gap: space[3],
+    marginTop: space[2],
   },
 });
