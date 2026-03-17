@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors as staticColors, space, radius, fontFamily, fontSize, shadows, iconSize } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, shadows, iconSize } from '../../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/ThemeContext';
 

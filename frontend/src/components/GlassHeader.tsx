@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../ThemeContext';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

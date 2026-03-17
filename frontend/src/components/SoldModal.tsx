@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '../ThemeContext';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

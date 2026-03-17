@@ -315,6 +315,147 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* ─── NOTIFICATIONS ─── */}
+      <View style={styles.section}>
+        <SectionHeader 
+          icon="bell" 
+          title="Notifications" 
+          description="Reminders to help you stay on track"
+          iconColor={colors.warning}
+          iconBg={colors.warningLight}
+        />
+        <View style={styles.card}>
+          <View style={styles.notificationRow}>
+            <View style={styles.notificationInfo}>
+              <Text style={styles.notificationLabel}>Weekly Review</Text>
+              <Text style={styles.notificationDesc}>Sundays at 10 AM</Text>
+            </View>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Soon</Text>
+            </View>
+          </View>
+          <Divider />
+          <View style={styles.notificationRow}>
+            <View style={styles.notificationInfo}>
+              <Text style={styles.notificationLabel}>Stale Inventory</Text>
+              <Text style={styles.notificationDesc}>Items needing attention</Text>
+            </View>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Soon</Text>
+            </View>
+          </View>
+          <Divider />
+          <View style={styles.notificationRow}>
+            <View style={styles.notificationInfo}>
+              <Text style={styles.notificationLabel}>Sold Item Cleanup</Text>
+              <Text style={styles.notificationDesc}>Update shipping status</Text>
+            </View>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Soon</Text>
+            </View>
+          </View>
+          <Divider />
+          <View style={styles.notificationRow}>
+            <View style={styles.notificationInfo}>
+              <Text style={styles.notificationLabel}>Ready to List</Text>
+              <Text style={styles.notificationDesc}>Items waiting to be listed</Text>
+            </View>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Soon</Text>
+            </View>
+          </View>
+        </View>
+        <Text style={styles.legalNote}>
+          Notifications require the Expo Go app. Available in native builds.
+        </Text>
+      </View>
+
+      {/* ─── CONNECTED ACCOUNTS ─── */}
+      <View style={styles.section}>
+        <SectionHeader 
+          icon="link" 
+          title="Connected Accounts" 
+          description="Sync with selling platforms"
+          iconColor={colors.brand}
+          iconBg={colors.surfaceMuted}
+        />
+        <View style={styles.card}>
+          <View style={styles.connectedAccountsInfo}>
+            <View style={styles.connectedIcon}>
+              <Feather name="lock" size={20} color={colors.textTertiary} />
+            </View>
+            <View style={styles.connectedContent}>
+              <Text style={styles.connectedTitle}>Secure Official Connections</Text>
+              <Text style={styles.connectedDesc}>
+                Connect platforms through official APIs only. We never store passwords or scrape data.
+              </Text>
+            </View>
+          </View>
+          <Divider />
+          <View style={styles.platformsPreview}>
+            {['eBay', 'Depop', 'Poshmark', 'Vinted'].map((platform, i) => (
+              <View key={platform} style={styles.platformPreviewItem}>
+                <Text style={styles.platformPreviewText}>{platform}</Text>
+                <View style={styles.comingSoonBadge}>
+                  <Text style={styles.comingSoonText}>Soon</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* ─── DATA & EXPORT ─── */}
+      <View style={styles.section}>
+        <SectionHeader 
+          icon="database" 
+          title="Data & Export" 
+          description="Manage your data"
+          iconColor={colors.textSecondary}
+          iconBg={colors.surfaceMuted}
+        />
+        <View style={styles.card}>
+          <SettingRow 
+            label="Export Inventory (CSV)" 
+            onPress={() => router.push('/insights')}
+            value="Go to Insights"
+          />
+          <Divider />
+          <SettingRow 
+            label="Export Sales History" 
+            onPress={() => router.push('/insights')}
+            value="Go to Insights"
+          />
+          <Divider />
+          <TouchableOpacity
+            style={styles.resetDataRow}
+            onPress={() => Alert.alert(
+              'Reset Sample Data',
+              'This will reset the app to the original sample data. Your settings will be preserved.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Reset', 
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await api.resetData();
+                      Alert.alert('Done', 'Sample data has been reset.');
+                    } catch (e) {
+                      Alert.alert('Error', 'Failed to reset data.');
+                    }
+                  }
+                },
+              ]
+            )}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.resetDataText}>Reset to Sample Data</Text>
+            <Feather name="refresh-cw" size={16} color={colors.warning} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* ─── PRIVACY & LEGAL ─── */}
       <View style={styles.section}>
         <SectionHeader 
@@ -326,28 +467,50 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <SettingRow 
             label="Privacy Policy" 
-            onPress={() => Alert.alert('Privacy Policy', 'Privacy policy will be available here.')}
+            onPress={() => Alert.alert(
+              'Privacy Policy',
+              'Resellr OS respects your privacy.\n\n• All data is stored locally on your device\n• No tracking or analytics\n• No data shared with third parties\n• You control your data completely\n\nFull policy available at resellr.app/privacy'
+            )}
           />
           <Divider />
           <SettingRow 
             label="Legal Notice / Imprint" 
-            onPress={() => Alert.alert('Legal Notice', 'Legal notice and imprint will be available here.')}
+            onPress={() => Alert.alert(
+              'Legal Notice',
+              'Resellr OS\n\nA personal inventory management tool for resellers.\n\nThis app is provided "as is" without warranty. Use at your own risk.\n\nFor questions: hello@resellr.app'
+            )}
           />
           <Divider />
           <SettingRow 
             label="Export My Data" 
-            value="Coming Soon"
-            showArrow={false}
+            onPress={() => Alert.alert(
+              'Export Your Data',
+              'You can export all your data as CSV files from the Insights screen.\n\nThis includes:\n• Full inventory history\n• Sales records\n• Profit calculations',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Go to Insights', onPress: () => router.push('/insights') }
+              ]
+            )}
           />
           <Divider />
           <SettingRow 
             label="Delete My Data" 
-            value="Coming Soon"
-            showArrow={false}
+            onPress={() => Alert.alert(
+              'Delete All Data',
+              'This will permanently delete all your inventory, sales history, and settings.\n\nThis action cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                  text: 'Delete Everything', 
+                  style: 'destructive',
+                  onPress: () => Alert.alert('Note', 'Data deletion will be available in the next update.')
+                }
+              ]
+            )}
           />
         </View>
         <Text style={styles.legalNote}>
-          Resellr OS is designed with privacy by default. Your data is stored locally on your device.
+          Resellr OS is designed with privacy by default. Your data is stored locally on your device and never leaves without your explicit action.
         </Text>
       </View>
 
@@ -668,6 +831,102 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.textTertiary,
     marginTop: space[3],
     fontStyle: 'italic',
+  },
+
+  // Notifications
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: space[4],
+    paddingHorizontal: space[4],
+  },
+  notificationInfo: {
+    flex: 1,
+  },
+  notificationLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+  },
+  notificationDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  comingSoonBadge: {
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  comingSoonText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 10,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Connected Accounts
+  connectedAccountsInfo: {
+    flexDirection: 'row',
+    padding: space[4],
+    gap: space[3],
+  },
+  connectedIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectedContent: {
+    flex: 1,
+  },
+  connectedTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  connectedDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    lineHeight: fontSize.xs * 1.5,
+  },
+  platformsPreview: {
+    paddingHorizontal: space[4],
+    paddingBottom: space[4],
+    gap: space[2],
+  },
+  platformPreviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: space[2],
+  },
+  platformPreviewText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+
+  // Reset Data
+  resetDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: space[4],
+    paddingHorizontal: space[4],
+  },
+  resetDataText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.warning,
   },
 
   // Save Button

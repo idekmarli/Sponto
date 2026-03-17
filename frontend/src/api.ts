@@ -36,4 +36,5 @@ export const api = {
   sourceCalculate: (data: any) => request('/source/calculate', { method: 'POST', body: JSON.stringify(data) }),
   analyzeScreenshot: (images: string[]) => request('/analyze-screenshot', { method: 'POST', body: JSON.stringify({ images }) }),
   seed: () => request('/seed', { method: 'POST' }),
+  resetData: () => request('/reset', { method: 'POST' }),
 };

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTheme } from '../ThemeContext';
 import {
   View,
   Text,

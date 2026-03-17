@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../ThemeContext';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../theme';

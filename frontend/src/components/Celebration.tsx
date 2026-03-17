@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTheme } from '../ThemeContext';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { colors, space, radius, fontFamily, fontSize, shadows } from '../theme';
 

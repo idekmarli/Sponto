@@ -23,10 +23,10 @@ export const colors = {
   textInverse: '#FAFAFA',
   
   // Brand — cooler olive-charcoal
-  brand: '#27272A',
-  brandLight: '#3F3F46',
-  accent: '#78716C',
-  accentLight: '#A8A29E',
+  brand: '#8B7355',
+  brandLight: '#A89078',
+  accent: '#27272A',
+  accentLight: '#3F3F46',
   accentMuted: '#D6D3D1',
   
   // Semantic - Success — vibrant green
