@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
 const TAG_FILTERS = ['stale', 'dead_stock', 'incomplete', 'needs_cleanup', 'margin_risk'];
 const PLATFORM_FILTERS = ['eBay', 'Depop', 'Vinted', 'Poshmark', 'Vestiaire', 'Etsy'];
 const MAX_VISIBLE_TAGS = 3;
+const HEADER_HEIGHT = 130; // Glass header height
 
 // Tag Chip Component - Small, subtle
 function TagChip({ tagKey, isDerived = false }: { tagKey: string; isDerived?: boolean }) {
@@ -709,13 +710,20 @@ const styles = StyleSheet.create({
   // Header
   headerArea: {
     paddingHorizontal: spacing.screenPadding,
-    marginBottom: space[5],
+    marginBottom: space[4],
+    paddingTop: space[2],
+    paddingBottom: space[3],
+    marginHorizontal: -spacing.screenPadding,
+    backgroundColor: 'rgba(245, 244, 242, 0.85)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: space[6],
+    marginBottom: space[4],
+    paddingHorizontal: spacing.screenPadding,
   },
   title: {
     ...typography.h1,
@@ -743,10 +751,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.xs,
     position: 'relative',
   },
   filterButtonActive: {
@@ -775,13 +782,13 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     gap: space[2],
+    paddingHorizontal: spacing.screenPadding,
   },
   filterChip: {
     paddingHorizontal: space[4],
     paddingVertical: space[2] + 2,
     borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    ...shadows.xs,
+    backgroundColor: 'rgba(255,255,255,0.6)',
   },
   filterChipActive: {
     backgroundColor: colors.brand,

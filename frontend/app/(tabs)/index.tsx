@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, cardStyles, buttonStyles, actionTypeConfig, priorityConfig } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
@@ -10,6 +11,9 @@ import { QuickActionSheet } from '../../src/components/QuickActionSheet';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
 import { Skeleton, SkeletonStatCard, SkeletonListItem } from '../../src/components/UI';
+
+// Glass Header Height for padding
+const HEADER_HEIGHT = 90;
 
 // ─── HERO METRIC CARD ───
 function HeroMetric({ label, value, subValue, trend, color }: {
@@ -245,18 +249,10 @@ export default function HomeScreen() {
   const topActions = actions.slice(0, 5);
 
   return (
-    <>
-      <ScrollView
-        testID="home-screen"
-        style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[4], paddingBottom: insets.bottom + space[8] }]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} tintColor={colors.brand} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
+    <View style={styles.container}>
+      {/* Glass Header */}
+      <View style={[styles.glassHeader, Platform.OS === 'web' && styles.glassHeaderWeb]}>
+        <View style={[styles.glassHeaderContent, { paddingTop: insets.top + space[2] }]}>
           <View>
             <Text style={styles.greeting}>Resellr OS</Text>
             <Text style={styles.date}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
@@ -265,6 +261,17 @@ export default function HomeScreen() {
             <Feather name="settings" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
+      </View>
+
+      <ScrollView
+        testID="home-screen"
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + HEADER_HEIGHT, paddingBottom: insets.bottom + space[8] }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} tintColor={colors.brand} />
+        }
+      >
 
         {/* ─── HERO METRICS CARD ─── */}
         <View style={styles.heroCard}>
@@ -393,7 +400,7 @@ export default function HomeScreen() {
         type={toast.type}
         onHide={() => setToast(prev => ({ ...prev, visible: false }))}
       />
-    </>
+    </View>
   );
 }
 
@@ -401,6 +408,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: spacing.screenPadding,
@@ -415,12 +425,28 @@ const styles = StyleSheet.create({
     marginTop: space[4],
   },
 
-  // Header
-  header: {
+  // Glass Header
+  glassHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: 'rgba(245, 244, 242, 0.75)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  glassHeaderWeb: {
+    // @ts-ignore - web only property
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+  },
+  glassHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: space[6],
+    alignItems: 'center',
+    paddingHorizontal: spacing.screenPadding,
+    paddingBottom: space[3],
   },
   greeting: {
     fontFamily: fontFamily.bold,
@@ -438,10 +464,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.sm,
   },
 
   // Hero Card
