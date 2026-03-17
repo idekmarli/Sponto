@@ -156,7 +156,7 @@ export default function SettingsScreen() {
       {/* ─── CURRENCY ─── */}
       <View style={styles.section}>
         <SectionHeader 
-          icon="dollar-sign" 
+          icon="globe" 
           title="Currency" 
           description="Select your preferred currency"
           iconColor={colors.info}

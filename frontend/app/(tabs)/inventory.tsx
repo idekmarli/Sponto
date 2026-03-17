@@ -30,11 +30,12 @@ function TagChip({ tagKey, isDerived = false }: { tagKey: string; isDerived?: bo
 }
 
 // Item Card Component - Photo-first, scannable
-function ItemCard({ item, onPress, onQuickSold, formatAmount }: { 
+function ItemCard({ item, onPress, onQuickSold, formatAmount, currencySymbol }: { 
   item: any; 
   onPress: () => void; 
   onQuickSold: () => void;
   formatAmount: (n: number) => string;
+  currencySymbol: string;
 }) {
   const statusCfg = statusConfig[item.status] || statusConfig.sourced;
   const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
@@ -122,7 +123,7 @@ function ItemCard({ item, onPress, onQuickSold, formatAmount }: {
                 onPress={(e) => { e.stopPropagation(); onQuickSold(); }}
                 activeOpacity={0.6}
               >
-                <Feather name="dollar-sign" size={14} color={colors.success} />
+                <Text style={styles.quickSoldIcon}>{currencySymbol}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -135,7 +136,7 @@ function ItemCard({ item, onPress, onQuickSold, formatAmount }: {
 export default function InventoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, currency } = useCurrency();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -210,6 +211,7 @@ export default function InventoryScreen() {
       onPress={() => router.push(`/item/${item.id}`)}
       onQuickSold={() => handleQuickSold(item)}
       formatAmount={formatAmount}
+      currencySymbol={currency.symbol}
     />
   );
 
@@ -690,6 +692,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successLight,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickSoldIcon: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
+    color: colors.success,
   },
 
   // Empty State

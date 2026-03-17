@@ -27,7 +27,7 @@ const STAGES = [
   { key: 'photographed', icon: 'camera', color: pipelineColors.photographed },
   { key: 'listed', icon: 'tag', color: pipelineColors.listed },
   { key: 'crosslisted', icon: 'copy', color: pipelineColors.crosslisted },
-  { key: 'sold', icon: 'dollar-sign', color: pipelineColors.sold },
+  { key: 'sold', icon: 'check', color: pipelineColors.sold },
   { key: 'shipped', icon: 'truck', color: pipelineColors.shipped },
   { key: 'completed', icon: 'check-circle', color: pipelineColors.completed },
 ];
