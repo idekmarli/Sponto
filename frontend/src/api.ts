@@ -23,6 +23,11 @@ export const api = {
   createItem: (data: any) => request('/items', { method: 'POST', body: JSON.stringify(data) }),
   updateItem: (id: string, data: any) => request(`/items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteItem: (id: string) => request(`/items/${id}`, { method: 'DELETE' }),
+  // Bulk operations
+  bulkUpdateItems: (itemIds: string[], update: Record<string, any>) => 
+    request('/items/bulk-update', { method: 'POST', body: JSON.stringify({ item_ids: itemIds, update }) }),
+  bulkDeleteItems: (itemIds: string[]) => 
+    request('/items/bulk-delete', { method: 'POST', body: JSON.stringify({ item_ids: itemIds }) }),
   getPipeline: () => request('/pipeline'),
   getDeadstock: () => request('/deadstock'),
   getInsights: () => request('/insights'),

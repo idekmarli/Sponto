@@ -199,6 +199,18 @@ backend:
         agent: "testing"
         comment: "VERIFIED: Returns all required fields (total_cost_basis, estimated_fees, net_profit, roi, margin, break_even_price, verdict, confidence). Good deals return 'buy' verdict (108.2% ROI, $54.1 profit tested). Bad deals correctly return 'skip'. All 6 platforms working with different fee structures."
 
+  - task: "Bulk Operations API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Bulk operations fully working. POST /api/items/bulk-update successfully updates multiple items (matched: 2, modified: 2). POST /api/items/bulk-delete properly deletes items and returns deleted count. Error handling correct - returns 400 for empty item_ids arrays. Non-existent IDs return 0 deleted. Data persistence verified."
+
 frontend:
   - task: "Home Screen with metrics and action feed"
     implemented: true
@@ -305,7 +317,7 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
@@ -334,15 +346,23 @@ agent_communication:
       Please test all backend APIs thoroughly.
   - agent: "testing"
     message: |
-      BACKEND API TESTING COMPLETE - 96.4% Success Rate (27/28 tests passed)
+      BACKEND API TESTING COMPLETE - 97.2% Success Rate (35/36 tests passed)
       
       ✅ ALL MAJOR APIs WORKING:
-      - Dashboard API: Returns all required metrics, action feed working (7 actions)
+      - Dashboard API: Returns all required metrics, action feed working (6 actions)
       - Items CRUD: Full Create/Read/Update/Delete working with data persistence
+      - Bulk Operations API: NEW - Both bulk-update and bulk-delete working perfectly
       - Pipeline API: All 8 workflow stages working with metadata (15 items)
       - Insights API: Analytics data working (6 months trends, ROI, performance)
       - Settings API: GET/PUT working, all platform fees configured
       - Source Calculator: Profit analysis working for all 6 platforms
+      
+      ✅ BULK OPERATIONS TESTING RESULTS:
+      - POST /api/items/bulk-update: Updates multiple items correctly (matched: 2, modified: 2)
+      - POST /api/items/bulk-delete: Deletes items and returns proper count
+      - Error handling: Both endpoints correctly return 400 for empty item_ids arrays
+      - Non-existent IDs: bulk-delete properly returns 0 for fake IDs
+      - Data verification: All updates and deletions persist correctly in database
       
       ❌ MINOR ISSUE FOUND:
       - Settings API missing 'min_margin' field (exists in model with default 30.0, used internally)

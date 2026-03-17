@@ -502,6 +502,167 @@ class BackendTester:
             failed = [p for p in platforms if p not in successful_platforms]
             self.log_result("Source Calculator Platforms", False, f"Failed platforms: {failed}")
 
+    def test_bulk_operations_api(self):
+        """Test Bulk Operations API - POST /api/items/bulk-update and /api/items/bulk-delete"""
+        print("\n=== Testing Bulk Operations API ===")
+        
+        # First, get some item IDs for testing
+        test_item_ids = []
+        try:
+            response = self.session.get(f"{self.base_url}/api/items")
+            if response.status_code == 200:
+                items = response.json()
+                if len(items) >= 2:
+                    test_item_ids = [items[0]["id"], items[1]["id"]]
+                    self.log_result("Bulk Ops Setup", True, f"Got {len(test_item_ids)} item IDs for testing")
+                else:
+                    self.log_result("Bulk Ops Setup", False, "Not enough items in database for bulk testing")
+                    return
+            else:
+                self.log_result("Bulk Ops Setup", False, f"Failed to get items: {response.status_code}")
+                return
+        except Exception as e:
+            self.log_result("Bulk Ops Setup", False, f"Exception: {str(e)}")
+            return
+        
+        # Test 1: POST /api/items/bulk-update - Valid update
+        if test_item_ids:
+            bulk_update_payload = {
+                "item_ids": test_item_ids,
+                "update": {"status": "listed"}
+            }
+            
+            try:
+                response = self.session.post(f"{self.base_url}/api/items/bulk-update", json=bulk_update_payload)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if "matched" in result and "modified" in result:
+                        matched = result["matched"]
+                        modified = result["modified"]
+                        self.log_result("Bulk Update Valid", True, f"Matched: {matched}, Modified: {modified}")
+                        
+                        # Verify the update actually happened
+                        try:
+                            verify_response = self.session.get(f"{self.base_url}/api/items/{test_item_ids[0]}")
+                            if verify_response.status_code == 200:
+                                updated_item = verify_response.json()
+                                if updated_item.get("status") == "listed":
+                                    self.log_result("Bulk Update Verification", True, "Status update applied correctly")
+                                else:
+                                    self.log_result("Bulk Update Verification", False, f"Expected 'listed', got '{updated_item.get('status')}'")
+                        except Exception as e:
+                            self.log_result("Bulk Update Verification", False, f"Verification failed: {str(e)}")
+                    else:
+                        self.log_result("Bulk Update Valid", False, "Response missing 'matched' or 'modified' fields")
+                else:
+                    self.log_result("Bulk Update Valid", False, f"Status {response.status_code}: {response.text}")
+            except Exception as e:
+                self.log_result("Bulk Update Valid", False, f"Exception: {str(e)}")
+        
+        # Test 2: POST /api/items/bulk-update - Empty item_ids (should return 400)
+        try:
+            empty_update_payload = {
+                "item_ids": [],
+                "update": {"status": "listed"}
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/items/bulk-update", json=empty_update_payload)
+            
+            if response.status_code == 400:
+                self.log_result("Bulk Update Empty IDs", True, "Correctly returns 400 for empty item_ids")
+            else:
+                self.log_result("Bulk Update Empty IDs", False, f"Expected 400, got {response.status_code}")
+        except Exception as e:
+            self.log_result("Bulk Update Empty IDs", False, f"Exception: {str(e)}")
+        
+        # Test 3: POST /api/items/bulk-delete - Non-existent IDs (should return 0 deleted)
+        try:
+            fake_delete_payload = {
+                "item_ids": ["fake-id-does-not-exist", "another-fake-id"]
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/items/bulk-delete", json=fake_delete_payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if "deleted" in result and result["deleted"] == 0:
+                    self.log_result("Bulk Delete Non-existent", True, "Correctly returns 0 for non-existent IDs")
+                else:
+                    self.log_result("Bulk Delete Non-existent", False, f"Expected deleted: 0, got: {result.get('deleted')}")
+            else:
+                self.log_result("Bulk Delete Non-existent", False, f"Status {response.status_code}: {response.text}")
+        except Exception as e:
+            self.log_result("Bulk Delete Non-existent", False, f"Exception: {str(e)}")
+        
+        # Test 4: POST /api/items/bulk-delete - Empty item_ids (should return 400)
+        try:
+            empty_delete_payload = {
+                "item_ids": []
+            }
+            
+            response = self.session.post(f"{self.base_url}/api/items/bulk-delete", json=empty_delete_payload)
+            
+            if response.status_code == 400:
+                self.log_result("Bulk Delete Empty IDs", True, "Correctly returns 400 for empty item_ids")
+            else:
+                self.log_result("Bulk Delete Empty IDs", False, f"Expected 400, got {response.status_code}")
+        except Exception as e:
+            self.log_result("Bulk Delete Empty IDs", False, f"Exception: {str(e)}")
+        
+        # Test 5: Create and delete test items to verify actual deletion works
+        test_item_for_deletion = {
+            "title": "TEST_BULK_DELETE_Item",
+            "brand": "Test Brand",
+            "category": "Testing",
+            "size": "OS",
+            "purchase_price": 10.0,
+            "target_list_price": 25.0,
+            "status": "sourced",
+            "tags": ["test", "bulk-delete"]
+        }
+        
+        deletion_test_ids = []
+        try:
+            # Create 2 test items for deletion
+            for i in range(2):
+                create_response = self.session.post(f"{self.base_url}/api/items", json=test_item_for_deletion)
+                if create_response.status_code == 200:
+                    created_item = create_response.json()
+                    deletion_test_ids.append(created_item["id"])
+            
+            if len(deletion_test_ids) == 2:
+                # Now test actual bulk deletion
+                delete_payload = {
+                    "item_ids": deletion_test_ids
+                }
+                
+                response = self.session.post(f"{self.base_url}/api/items/bulk-delete", json=delete_payload)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("deleted") == 2:
+                        self.log_result("Bulk Delete Real Items", True, f"Successfully deleted {result['deleted']} test items")
+                        
+                        # Verify items were actually deleted
+                        verify_response = self.session.get(f"{self.base_url}/api/items/{deletion_test_ids[0]}")
+                        if verify_response.status_code == 404:
+                            self.log_result("Bulk Delete Verification", True, "Items properly removed from database")
+                        else:
+                            self.log_result("Bulk Delete Verification", False, "Items still exist after deletion")
+                    else:
+                        self.log_result("Bulk Delete Real Items", False, f"Expected deleted: 2, got: {result.get('deleted')}")
+                else:
+                    self.log_result("Bulk Delete Real Items", False, f"Status {response.status_code}: {response.text}")
+        except Exception as e:
+            self.log_result("Bulk Delete Real Items", False, f"Exception: {str(e)}")
+            # Clean up any remaining test items
+            for item_id in deletion_test_ids:
+                try:
+                    self.session.delete(f"{self.base_url}/api/items/{item_id}")
+                except:
+                    pass
+
     def run_all_tests(self):
         """Run all backend API tests"""
         print(f"🧪 Starting Resellr OS Backend API Tests")
@@ -511,6 +672,7 @@ class BackendTester:
         # Run all test suites
         self.test_dashboard_api()
         self.test_items_crud_api()
+        self.test_bulk_operations_api()  # New bulk operations test
         self.test_pipeline_api()
         self.test_insights_api()
         self.test_settings_api()

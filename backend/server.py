@@ -511,6 +511,47 @@ async def delete_item(item_id: str):
     return {"deleted": True}
 
 
+# ─── Bulk Operations ───
+
+class BulkUpdateRequest(BaseModel):
+    item_ids: List[str]
+    update: Dict[str, Any]  # Fields to update
+
+class BulkDeleteRequest(BaseModel):
+    item_ids: List[str]
+
+@api_router.post("/items/bulk-update")
+async def bulk_update_items(request: BulkUpdateRequest):
+    """Update multiple items at once."""
+    if not request.item_ids:
+        raise HTTPException(status_code=400, detail="No item IDs provided")
+    
+    updates = {k: v for k, v in request.update.items() if v is not None}
+    updates["updated_at"] = now_iso()
+    
+    result = await db.items.update_many(
+        {"id": {"$in": request.item_ids}},
+        {"$set": updates}
+    )
+    
+    return {
+        "matched": result.matched_count,
+        "modified": result.modified_count
+    }
+
+@api_router.post("/items/bulk-delete")
+async def bulk_delete_items(request: BulkDeleteRequest):
+    """Delete multiple items at once."""
+    if not request.item_ids:
+        raise HTTPException(status_code=400, detail="No item IDs provided")
+    
+    result = await db.items.delete_many({"id": {"$in": request.item_ids}})
+    
+    return {
+        "deleted": result.deleted_count
+    }
+
+
 # ─── Dashboard ───
 
 @api_router.get("/dashboard")

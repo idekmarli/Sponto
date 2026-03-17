@@ -254,10 +254,9 @@ export default function InventoryScreen() {
 
   const handleBulkStatusChange = async (newStatus: string) => {
     try {
-      for (const id of selectedIds) {
-        await api.updateItem(id, { status: newStatus });
-      }
-      setToast({ visible: true, message: `${selectedIds.size} items updated`, type: 'success' });
+      const ids = Array.from(selectedIds);
+      await api.bulkUpdateItems(ids, { status: newStatus });
+      setToast({ visible: true, message: `${ids.length} items updated`, type: 'success' });
       clearSelection();
       fetchItems();
     } catch (e) {
@@ -268,10 +267,9 @@ export default function InventoryScreen() {
 
   const handleBulkDelete = async () => {
     try {
-      for (const id of selectedIds) {
-        await api.deleteItem(id);
-      }
-      setToast({ visible: true, message: `${selectedIds.size} items deleted`, type: 'success' });
+      const ids = Array.from(selectedIds);
+      await api.bulkDeleteItems(ids);
+      setToast({ visible: true, message: `${ids.length} items deleted`, type: 'success' });
       clearSelection();
       fetchItems();
     } catch (e) {
@@ -431,7 +429,7 @@ export default function InventoryScreen() {
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={ListHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, selectionMode && { paddingBottom: 120 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -541,6 +539,65 @@ export default function InventoryScreen() {
           >
             <Text style={styles.modalApplyText}>Apply Filters</Text>
           </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Bulk Action Bar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <View style={styles.bulkActionBar}>
+          <View style={styles.bulkActionButtons}>
+            <TouchableOpacity 
+              style={styles.bulkActionBtn}
+              onPress={() => setShowBulkActions(true)}
+              activeOpacity={0.7}
+            >
+              <Feather name="refresh-cw" size={18} color={colors.textPrimary} />
+              <Text style={styles.bulkActionBtnText}>Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.bulkActionBtn, styles.bulkActionBtnDanger]}
+              onPress={handleBulkDelete}
+              activeOpacity={0.7}
+            >
+              <Feather name="trash-2" size={18} color={colors.error} />
+              <Text style={[styles.bulkActionBtnText, styles.bulkActionBtnTextDanger]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Bulk Status Change Modal */}
+      <Modal
+        visible={showBulkActions}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowBulkActions(false)}
+      >
+        <View style={styles.bulkStatusModal}>
+          <View style={styles.bulkStatusContent}>
+            <View style={styles.bulkStatusHeader}>
+              <Text style={styles.bulkStatusTitle}>Change Status</Text>
+              <TouchableOpacity onPress={() => setShowBulkActions(false)}>
+                <Feather name="x" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.bulkStatusOptions}>
+              {['sourced', 'listed', 'crosslisted', 'sold', 'shipped', 'completed'].map((status) => {
+                const cfg = statusConfig[status];
+                return (
+                  <TouchableOpacity
+                    key={status}
+                    style={styles.bulkStatusOption}
+                    onPress={() => handleBulkStatusChange(status)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[{ width: 12, height: 12, borderRadius: 6, backgroundColor: cfg?.color || colors.brand }]} />
+                    <Text style={styles.bulkStatusOptionText}>{cfg?.label || status}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
         </View>
       </Modal>
     </>
@@ -930,5 +987,141 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.md,
     color: colors.textInverse,
+  },
+
+  // Selection Mode Styles
+  itemCardSelected: {
+    borderWidth: 2,
+    borderColor: colors.brand,
+  },
+  selectionCheckbox: {
+    position: 'absolute',
+    top: space[2],
+    left: space[2],
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  selectionCheckboxSelected: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  selectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+  },
+  cancelSelectionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectionCount: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textPrimary,
+  },
+  selectAllBtn: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+  },
+  selectAllText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.brand,
+  },
+
+  // Bulk Action Bar
+  bulkActionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: space[3],
+    paddingBottom: space[8],
+    ...shadows.lg,
+  },
+  bulkActionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    gap: space[2],
+  },
+  bulkActionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space[3],
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+  },
+  bulkActionBtnDanger: {
+    backgroundColor: colors.errorLight,
+  },
+  bulkActionBtnText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textPrimary,
+    marginTop: space[1],
+  },
+  bulkActionBtnTextDanger: {
+    color: colors.error,
+  },
+
+  // Bulk Status Modal
+  bulkStatusModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  bulkStatusContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingTop: space[4],
+    paddingBottom: space[8],
+    paddingHorizontal: spacing.screenPadding,
+  },
+  bulkStatusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: space[4],
+  },
+  bulkStatusTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textPrimary,
+  },
+  bulkStatusOptions: {
+    gap: space[2],
+  },
+  bulkStatusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+  },
+  bulkStatusOptionText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
   },
 });
