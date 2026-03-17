@@ -9,16 +9,16 @@ import { useCurrency } from '../../src/currency';
 import { EmptyState } from '../../src/components/UI';
 import { Toast } from '../../src/components/Toast';
 
-// Pipeline Stage Colors — Refined, cohesive palette matching app aesthetic
+// Pipeline Stage Colors — Distinct, vibrant palette
 const pipelineColors = {
-  sourced: '#78716C',     // Stone gray - new acquisition
-  intake: '#8B7355',      // Warm taupe - processing
-  photographed: '#9F7B56', // Caramel - creative/photos
-  listed: '#6B8E6B',      // Sage green - live/active
-  crosslisted: '#5C8A8A', // Teal sage - multi-platform
-  sold: '#4A7A4A',        // Forest green - success/money
-  shipped: '#B8860B',     // Dark goldenrod - in transit
-  completed: '#3D5A3D',   // Deep sage - done
+  sourced: '#6366F1',     // Indigo - new acquisition
+  intake: '#8B5CF6',      // Purple - processing
+  photographed: '#EC4899', // Pink - creative/photos
+  listed: '#F59E0B',      // Amber - live/active
+  crosslisted: '#06B6D4', // Cyan - multi-platform
+  sold: '#10B981',        // Emerald - success/money
+  shipped: '#3B82F6',     // Blue - in transit
+  completed: '#059669',   // Green - done
 };
 
 const STAGES = [
