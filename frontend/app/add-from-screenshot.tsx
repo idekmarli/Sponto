@@ -180,26 +180,49 @@ export default function AddFromScreenshotScreen() {
   // Pick images
   const pickImages = async () => {
     try {
+      setError(null);
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsMultipleSelection: true,
+        allowsMultipleSelection: false, // Single image for better UX
         quality: 0.8,
         base64: true,
       });
 
       if (!result.canceled && result.assets.length > 0) {
-        const images = result.assets
-          .filter(a => a.base64)
-          .map(a => `data:image/jpeg;base64,${a.base64}`);
+        const asset = result.assets[0];
         
-        if (images.length > 0) {
-          setSelectedImages(images);
-          analyzeImages(images);
+        if (!asset.base64) {
+          setError('Failed to read image data. Please try again.');
+          return;
         }
+        
+        const imageUri = `data:image/jpeg;base64,${asset.base64}`;
+        setSelectedImages([imageUri]);
+        
+        // Show crop option first before analysis
+        setShowCropper(true);
       }
     } catch (e) {
       console.error('Image picker error:', e);
-      setError('Failed to select images');
+      setError('Failed to select image. Please try again.');
+    }
+  };
+  
+  // Handle cropped image and continue to analysis
+  const handleCrop = async (croppedUri: string) => {
+    setCroppedImage(croppedUri);
+    setShowCropper(false);
+    
+    // Now analyze the cropped image
+    analyzeImages([croppedUri]);
+  };
+  
+  // Skip crop and analyze original
+  const skipCropAndAnalyze = () => {
+    setShowCropper(false);
+    if (selectedImages[0]) {
+      analyzeImages(selectedImages);
     }
   };
 
@@ -345,12 +368,6 @@ export default function AddFromScreenshotScreen() {
     setPurchasePrice('');
     setNotes('');
     setCroppedImage(null);
-  };
-  
-  // Handle cropped image
-  const handleCrop = (croppedUri: string) => {
-    setCroppedImage(croppedUri);
-    setShowCropper(false);
   };
 
   // ─── Render Upload State ───
