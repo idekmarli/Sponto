@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors, space, radius, fontFamily, fontSize, iconSize } from '../theme';
+import { colors, space, radius, fontFamily, fontSize, iconSize, shadows } from '../theme';
 
 // ============================================================================
 // BADGE COMPONENT
@@ -169,6 +169,7 @@ const statStyles = StyleSheet.create({
     paddingVertical: space[4],
     paddingHorizontal: space[3],
     minWidth: 100,
+    ...shadows.xs,
   },
   cardHighlight: {
     backgroundColor: colors.surfaceMuted,

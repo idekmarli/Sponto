@@ -272,55 +272,60 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* ─── CONNECTED ACCOUNTS (PRO) ─── */}
+      {/* ─── RESELLR PRO ─── */}
       <View style={styles.section}>
         <View style={styles.proSectionHeader}>
           <SectionHeader 
-            icon="link" 
-            title="Connected Accounts" 
+            icon="zap" 
+            title="Resellr Pro" 
             iconColor={colors.pro}
             iconBg={colors.proLight}
           />
           <ProBadge />
         </View>
-        <Text style={styles.proDescription}>
-          Sync supported marketplaces with secure official connections only.
-        </Text>
-        <View style={[cardStyles.pro, styles.proCard]}>
-          <ComingSoonRow label="eBay" description="Official API integration" />
+        <View style={[cardStyles.pro, styles.proCardCompact]}>
+          <View style={styles.proFeatureRow}>
+            <View style={styles.proFeatureIcon}>
+              <Feather name="link" size={16} color={colors.pro} />
+            </View>
+            <View style={styles.proFeatureContent}>
+              <Text style={styles.proFeatureTitle}>Marketplace Sync</Text>
+              <Text style={styles.proFeatureDesc}>Connect eBay, Depop, and more</Text>
+            </View>
+            <View style={styles.proFeatureLock}>
+              <Feather name="lock" size={14} color={colors.textMuted} />
+            </View>
+          </View>
           <Divider />
-          <ComingSoonRow label="Depop" description="Pending partner access" />
+          <View style={styles.proFeatureRow}>
+            <View style={styles.proFeatureIcon}>
+              <Feather name="download" size={16} color={colors.pro} />
+            </View>
+            <View style={styles.proFeatureContent}>
+              <Text style={styles.proFeatureTitle}>Export & Reports</Text>
+              <Text style={styles.proFeatureDesc}>CSV, Excel, monthly summaries</Text>
+            </View>
+            <View style={styles.proFeatureLock}>
+              <Feather name="lock" size={14} color={colors.textMuted} />
+            </View>
+          </View>
           <Divider />
-          <ComingSoonRow label="Vinted" description="Future integration" />
+          <View style={styles.proFeatureRow}>
+            <View style={styles.proFeatureIcon}>
+              <Feather name="trending-up" size={16} color={colors.pro} />
+            </View>
+            <View style={styles.proFeatureContent}>
+              <Text style={styles.proFeatureTitle}>Advanced Analytics</Text>
+              <Text style={styles.proFeatureDesc}>Profit predictions, market insights</Text>
+            </View>
+            <View style={styles.proFeatureLock}>
+              <Feather name="lock" size={14} color={colors.textMuted} />
+            </View>
+          </View>
         </View>
         <Text style={styles.proNote}>
-          We never store marketplace passwords. All connections use secure OAuth flows.
+          Pro features are coming soon. Your app will be upgraded automatically.
         </Text>
-      </View>
-
-      {/* ─── EXPORTS (PRO) ─── */}
-      <View style={styles.section}>
-        <View style={styles.proSectionHeader}>
-          <SectionHeader 
-            icon="download" 
-            title="Exports" 
-            iconColor={colors.pro}
-            iconBg={colors.proLight}
-          />
-          <ProBadge />
-        </View>
-        <Text style={styles.proDescription}>
-          Export your sales, inventory, and business records for bookkeeping and review.
-        </Text>
-        <View style={[cardStyles.pro, styles.proCard]}>
-          <ComingSoonRow label="Export Sales" description="CSV or Excel" />
-          <Divider />
-          <ComingSoonRow label="Export Inventory" description="Current stock valuation" />
-          <Divider />
-          <ComingSoonRow label="Export Expenses" description="Cost tracking" />
-          <Divider />
-          <ComingSoonRow label="Monthly Report" description="Business summary" />
-        </View>
       </View>
 
       {/* ─── PRIVACY & LEGAL ─── */}
@@ -595,6 +600,46 @@ const styles = StyleSheet.create({
   },
   proCard: {
     overflow: 'hidden',
+  },
+  proCardCompact: {
+    overflow: 'hidden',
+  },
+  proFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: space[4],
+    paddingHorizontal: space[4],
+    gap: space[3],
+  },
+  proFeatureIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.proLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proFeatureContent: {
+    flex: 1,
+  },
+  proFeatureTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+  },
+  proFeatureDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  proFeatureLock: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   proNote: {
     ...typography.caption,

@@ -8,15 +8,27 @@ import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { EmptyState } from '../../src/components/UI';
 
+// Vibrant Pipeline Stage Colors
+const pipelineColors = {
+  sourced: '#6366F1',     // Indigo - sourcing/acquiring
+  intake: '#8B5CF6',      // Purple - processing
+  photographed: '#EC4899', // Pink - creative/photos
+  listed: '#14B8A6',      // Teal - live/active
+  crosslisted: '#06B6D4', // Cyan - multi-platform
+  sold: '#22C55E',        // Green - success/money
+  shipped: '#F59E0B',     // Amber - in transit
+  completed: '#10B981',   // Emerald - done
+};
+
 const STAGES = [
-  { key: 'sourced', icon: 'shopping-bag', color: colors.accent },
-  { key: 'intake', icon: 'inbox', color: colors.accent },
-  { key: 'photographed', icon: 'camera', color: colors.accent },
-  { key: 'listed', icon: 'tag', color: colors.success },
-  { key: 'crosslisted', icon: 'copy', color: colors.success },
-  { key: 'sold', icon: 'dollar-sign', color: colors.success },
-  { key: 'shipped', icon: 'truck', color: colors.success },
-  { key: 'completed', icon: 'check-circle', color: colors.textTertiary },
+  { key: 'sourced', icon: 'shopping-bag', color: pipelineColors.sourced },
+  { key: 'intake', icon: 'inbox', color: pipelineColors.intake },
+  { key: 'photographed', icon: 'camera', color: pipelineColors.photographed },
+  { key: 'listed', icon: 'tag', color: pipelineColors.listed },
+  { key: 'crosslisted', icon: 'copy', color: pipelineColors.crosslisted },
+  { key: 'sold', icon: 'dollar-sign', color: pipelineColors.sold },
+  { key: 'shipped', icon: 'truck', color: pipelineColors.shipped },
+  { key: 'completed', icon: 'check-circle', color: pipelineColors.completed },
 ];
 
 // Pipeline Item Card - Enhanced with price, profit, and photo

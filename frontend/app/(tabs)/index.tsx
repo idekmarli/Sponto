@@ -232,6 +232,24 @@ export default function HomeScreen() {
           <StatPill icon="alert-octagon" value={metrics.dead_stock_count || 0} label="Dead" color={colors.error} />
         </View>
 
+        {/* ─── FIRST ITEM GUIDANCE ─── */}
+        {metrics.total_active === 0 && (
+          <TouchableOpacity 
+            style={styles.firstItemCard} 
+            onPress={() => router.push('/quick-add')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.firstItemIconWrap}>
+              <Feather name="plus-circle" size={28} color={colors.brand} />
+            </View>
+            <View style={styles.firstItemContent}>
+              <Text style={styles.firstItemTitle}>Add your first item</Text>
+              <Text style={styles.firstItemDesc}>Start tracking your inventory and watch your profits grow</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+
         {/* ─── QUICK ACTIONS ─── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -437,6 +455,44 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textTertiary,
     marginTop: 2,
+  },
+
+  // First Item Guidance Card
+  firstItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: space[4],
+    marginBottom: space[5],
+    borderWidth: 2,
+    borderColor: colors.brand,
+    borderStyle: 'dashed',
+    gap: space[3],
+    ...shadows.sm,
+  },
+  firstItemIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  firstItemContent: {
+    flex: 1,
+  },
+  firstItemTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  firstItemDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 
   // Sections
