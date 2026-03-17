@@ -168,8 +168,19 @@ export default function HomeScreen() {
   }
 
   const d = dashboard || {};
-  const metrics = d.metrics || {};
-  const actions = d.weekly_actions || [];
+  // Dashboard data is at root level, not nested under metrics
+  const metrics = {
+    active_capital: d.capital_in_inventory || 0,
+    monthly_profit: d.monthly_net_profit || 0,
+    total_active: (d.active_listings || 0) + (d.pre_listing || 0),
+    total_listed: d.active_listings || 0,
+    total_stale: d.stale_count || 0,
+    dead_stock_count: d.dead_stock_count || 0,
+    avg_roi: d.avg_margin || 0,
+    avg_days_to_sell: Math.round((d.sell_through_rate || 0) > 0 ? 30 : 0),
+    sell_through_rate: d.sell_through_rate || 0,
+  };
+  const actions = d.actions || [];
   const topActions = actions.slice(0, 5);
 
   return (

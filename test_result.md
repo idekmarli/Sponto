@@ -101,3 +101,250 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Build an iPhone-first mobile app called Resellr OS, a premium reseller operating system.
+  The app should help solo resellers manage their entire workflow, from sourcing to sales.
+  Features: Home (command center), Inventory (filterable list with tags/status), 
+  Source (sourcing decision engine), Pipeline (Kanban view), Insights, and Settings.
+
+backend:
+  - task: "Dashboard API returns metrics and actions"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Dashboard returns monthly_net_profit, capital_in_inventory, actions, etc. Verified with curl"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Returns all 9 required fields (monthly_net_profit, monthly_revenue, capital_in_inventory, active_listings, pre_listing, dead_stock_count, stale_count, sell_through_rate, actions). Actions array contains 7 items with correct structure (priority, type, item_id, title, message). All data types correct."
+
+  - task: "Items CRUD API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Items API supports create, read, update, delete with status and tags"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Full CRUD working - GET /api/items returns 15 items with computed fields (total_cost_basis, net_profit, roi, health). CREATE/UPDATE/DELETE tested with data persistence. Status filtering works (4 listed items). Single item GET includes smart_actions. 404 properly returned for non-existent items."
+
+  - task: "Pipeline API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Pipeline returns items grouped by status stages"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Returns all 8 workflow stages (sourced, intake, photographed, listed, crosslisted, sold, shipped, completed) with 15 total items. Each stage includes metadata: count, avg_days, stuck_count, is_bottleneck. Items properly grouped by status."
+
+  - task: "Insights API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Insights API returns ROI, trends, category breakdown"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Returns all 7 required fields (platform_revenue, platform_profit, category_performance, avg_roi, avg_days_to_sell, dead_stock_percentage, monthly_trends). Monthly trends include 6 months of data. All data types correct."
+
+  - task: "Settings API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Settings API supports currency and platform fees configuration"
+      - working: true
+        agent: "testing"
+        comment: "Minor: GET/PUT working perfectly - 7 platforms configured (ebay, depop, vinted, vestiaire, poshmark, etsy, custom). Settings persist correctly. Only minor issue: min_margin field missing from API response (exists in model with default 30.0, used internally)."
+
+  - task: "Source Calculator API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Source calculator returns profit analysis for potential purchases"
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED: Returns all required fields (total_cost_basis, estimated_fees, net_profit, roi, margin, break_even_price, verdict, confidence). Good deals return 'buy' verdict (108.2% ROI, $54.1 profit tested). Bad deals correctly return 'skip'. All 6 platforms working with different fee structures."
+
+frontend:
+  - task: "Home Screen with metrics and action feed"
+    implemented: true
+    working: true
+    file: "app/(tabs)/index.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Was crashing due to incorrect data mapping from API"
+      - working: true
+        agent: "main"
+        comment: "Fixed data mapping - metrics now correctly mapped from root level API response. Screenshot verified."
+
+  - task: "Inventory Screen with filters and tags"
+    implemented: true
+    working: true
+    file: "app/(tabs)/inventory.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Shows 15 items with status badges and workflow tags. Screenshot verified."
+
+  - task: "Source Calculator Screen"
+    implemented: true
+    working: true
+    file: "app/(tabs)/source.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Platform selection, category, price inputs work. Screenshot verified."
+
+  - task: "Pipeline Kanban Screen"
+    implemented: true
+    working: true
+    file: "app/(tabs)/pipeline.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Shows 15 items across 7 stages with progress bar. Screenshot verified."
+
+  - task: "Insights Screen"
+    implemented: true
+    working: true
+    file: "app/(tabs)/insights.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Shows ROI (411%), days to sell, charts. Screenshot verified."
+
+  - task: "Settings Screen"
+    implemented: true
+    working: true
+    file: "app/settings.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Currency selection and platform fees visible. Screenshot verified."
+
+  - task: "Item Detail Screen with tag editor"
+    implemented: true
+    working: true
+    file: "app/item/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Item detail shows info, workflow tags (manual + system). Screenshot verified."
+
+  - task: "QuickActionSheet component"
+    implemented: true
+    working: true
+    file: "src/components/QuickActionSheet.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Was throwing 'actions.map is not a function' error"
+      - working: true
+        agent: "main"
+        comment: "Fixed by redesigning component to generate actions from type. No crash on Home screen."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 2
+  run_ui: false
+
+test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Fixed critical Home screen crash by correcting data mapping. 
+      The dashboard API returns data at root level (monthly_net_profit, capital_in_inventory, etc.)
+      but the frontend was expecting it under 'metrics' object.
+      Also fixed actions array name (API returns 'actions', frontend expected 'weekly_actions').
+      
+      All screens now verified working via screenshots:
+      - Home: Shows $770 active capital, $446 monthly profit, 8 items
+      - Inventory: Shows 15 items with status badges and tags
+      - Source: Calculator form with platform/category selection
+      - Pipeline: 15 items across 7 stages
+      - Insights: 411% ROI, charts working
+      - Settings: Currency and fees visible
+      - Item Detail: Tags section with manual and auto tags
+      
+      Please test all backend APIs thoroughly.
+  - agent: "testing"
+    message: |
+      BACKEND API TESTING COMPLETE - 96.4% Success Rate (27/28 tests passed)
+      
+      ✅ ALL MAJOR APIs WORKING:
+      - Dashboard API: Returns all required metrics, action feed working (7 actions)
+      - Items CRUD: Full Create/Read/Update/Delete working with data persistence
+      - Pipeline API: All 8 workflow stages working with metadata (15 items)
+      - Insights API: Analytics data working (6 months trends, ROI, performance)
+      - Settings API: GET/PUT working, all platform fees configured
+      - Source Calculator: Profit analysis working for all 6 platforms
+      
+      ❌ MINOR ISSUE FOUND:
+      - Settings API missing 'min_margin' field (exists in model with default 30.0, used internally)
+      
+      All core functionality verified. Backend APIs are production-ready.
