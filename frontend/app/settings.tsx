@@ -7,6 +7,7 @@ import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typograp
 import { api } from '../src/api';
 import { useCurrency, CURRENCIES } from '../src/currency';
 import { Divider } from '../src/components/UI';
+import { useTheme, themes, ThemeId } from '../src/ThemeContext';
 
 const PLATFORM_NAMES: Record<string, string> = {
   ebay: 'eBay',
@@ -85,6 +86,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { currency, setCurrency } = useCurrency();
+  const { themeId, setTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [platformFees, setPlatformFees] = useState<Record<string, string>>({});
@@ -181,6 +183,43 @@ export default function SettingsScreen() {
               )}
             </TouchableOpacity>
           ))}
+        </View>
+      </View>
+
+      {/* ─── THEME ─── */}
+      <View style={styles.section}>
+        <SectionHeader 
+          icon="moon" 
+          title="Theme" 
+          description="Choose your color theme"
+          iconColor="#A78BFA"
+          iconBg="#EDE9FE"
+        />
+        <View style={styles.themeGrid}>
+          {(Object.keys(themes) as ThemeId[]).map((id) => {
+            const t = themes[id];
+            const isSelected = themeId === id;
+            return (
+              <TouchableOpacity
+                key={id}
+                style={[styles.themeCard, isSelected && styles.themeCardSelected]}
+                onPress={() => setTheme(id)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.themePreview}>
+                  {t.preview.map((color, i) => (
+                    <View key={i} style={[styles.themePreviewColor, { backgroundColor: color }]} />
+                  ))}
+                </View>
+                <Text style={[styles.themeName, isSelected && styles.themeNameSelected]}>{t.name}</Text>
+                {isSelected && (
+                  <View style={styles.themeCheck}>
+                    <Feather name="check" size={12} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
