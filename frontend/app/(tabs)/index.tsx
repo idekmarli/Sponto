@@ -5,6 +5,9 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows, actionConfig, priorityConfig } from '../../src/theme';
 import { api } from '../../src/api';
+import { QuickActionSheet, QuickAction } from '../../src/components/QuickActionSheet';
+import { SoldModal } from '../../src/components/SoldModal';
+import { Toast } from '../../src/components/Toast';
 
 interface DashboardData {
   monthly_net_profit: number;
@@ -28,37 +31,56 @@ interface DashboardData {
   total_items: number;
 }
 
-// Action Item Component
-function ActionItem({ action, onPress, isLast }: { action: any; onPress: () => void; isLast: boolean }) {
+// Action Item with Quick Actions
+function ActionItem({ action, onQuickAction, onNavigate, isLast }: { 
+  action: any; 
+  onQuickAction: (action: any) => void;
+  onNavigate: () => void; 
+  isLast: boolean;
+}) {
   const config = actionConfig[action.type] || actionConfig.incomplete;
   const priority = action.priority || 7;
   const priorityInfo = priorityConfig[priority] || priorityConfig[7];
 
+  // Determine if this action can be quick-acted
+  const hasQuickAction = ['sold_pending', 'shipped_pending', 'needs_listing', 'stale_reprice', 'critical_stale'].includes(action.type);
+
   return (
-    <TouchableOpacity
-      testID={`action-${action.type}-${action.item_id}`}
-      style={[styles.actionItem, !isLast && styles.actionItemBorder]}
-      onPress={onPress}
-      activeOpacity={0.5}
-    >
-      <View style={[styles.actionIcon, { backgroundColor: config.bg }]}>
-        <Feather name={config.icon as any} size={14} color={config.color} />
-      </View>
-      <View style={styles.actionBody}>
-        <Text style={styles.actionMessage} numberOfLines={2}>{action.message}</Text>
-        <View style={styles.actionMeta}>
-          {priority <= 3 && (
-            <View style={[styles.priorityBadge, { backgroundColor: priorityInfo.color }]}>
-              <Text style={styles.priorityText}>{priorityInfo.label}</Text>
-            </View>
-          )}
-          {action.capital_at_risk > 0 && (
-            <Text style={styles.actionRisk}>${action.capital_at_risk} at risk</Text>
-          )}
+    <View style={[styles.actionItem, !isLast && styles.actionItemBorder]}>
+      <TouchableOpacity
+        testID={`action-${action.type}-${action.item_id}`}
+        style={styles.actionItemContent}
+        onPress={onNavigate}
+        activeOpacity={0.5}
+      >
+        <View style={[styles.actionIcon, { backgroundColor: config.bg }]}>
+          <Feather name={config.icon as any} size={14} color={config.color} />
         </View>
-      </View>
-      <Feather name="chevron-right" size={16} color={colors.textMuted} />
-    </TouchableOpacity>
+        <View style={styles.actionBody}>
+          <Text style={styles.actionMessage} numberOfLines={2}>{action.message}</Text>
+          <View style={styles.actionMeta}>
+            {priority <= 3 && (
+              <View style={[styles.priorityBadge, { backgroundColor: priorityInfo.color }]}>
+                <Text style={styles.priorityText}>{priorityInfo.label}</Text>
+              </View>
+            )}
+            {action.capital_at_risk > 0 && (
+              <Text style={styles.actionRisk}>${action.capital_at_risk} at risk</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+      {hasQuickAction && (
+        <TouchableOpacity
+          testID={`quick-action-${action.item_id}`}
+          style={styles.quickActionBtn}
+          onPress={() => onQuickAction(action)}
+          activeOpacity={0.6}
+        >
+          <Feather name="zap" size={16} color={colors.accent} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -138,6 +160,15 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Quick Action State
+  const [quickActionVisible, setQuickActionVisible] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<any>(null);
+  const [soldModalVisible, setSoldModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  // Toast State
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+
   const fetchData = useCallback(async () => {
     try {
       setData(await api.getDashboard());
@@ -152,6 +183,98 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Handle Quick Action
+  const handleQuickAction = (action: any) => {
+    setSelectedAction(action);
+    
+    // For sold_pending, show sold modal directly
+    if (action.type === 'sold_pending') {
+      setSelectedItem({
+        id: action.item_id,
+        title: action.title,
+        target_list_price: action.suggested_price || 0,
+        total_cost_basis: 0, // We'll fetch this if needed
+      });
+      setSoldModalVisible(true);
+      return;
+    }
+    
+    // For other types, show action sheet
+    setQuickActionVisible(true);
+  };
+
+  // Get quick actions based on action type
+  const getQuickActions = (action: any): QuickAction[] => {
+    if (!action) return [];
+    
+    switch (action.type) {
+      case 'shipped_pending':
+        return [
+          { key: 'complete', label: 'Mark as Complete', icon: 'check-circle', color: colors.success },
+          { key: 'view', label: 'View Item Details', icon: 'eye' },
+        ];
+      case 'needs_listing':
+        return [
+          { key: 'list', label: 'Mark as Listed', icon: 'tag', color: colors.success },
+          { key: 'view', label: 'View Item Details', icon: 'eye' },
+        ];
+      case 'stale_reprice':
+      case 'critical_stale':
+        return [
+          { key: 'reprice', label: `Drop to $${action.suggested_price}`, icon: 'trending-down', color: colors.warning },
+          { key: 'crosslist', label: 'Add to Another Platform', icon: 'copy' },
+          { key: 'view', label: 'View Item Details', icon: 'eye' },
+        ];
+      default:
+        return [
+          { key: 'view', label: 'View Item Details', icon: 'eye' },
+        ];
+    }
+  };
+
+  // Execute quick action
+  const executeQuickAction = async (key: string) => {
+    if (!selectedAction) return;
+    
+    try {
+      if (key === 'view') {
+        router.push(`/item/${selectedAction.item_id}`);
+        return;
+      }
+      
+      if (key === 'complete') {
+        await api.updateItem(selectedAction.item_id, { status: 'completed' });
+        setToast({ visible: true, message: 'Item marked complete!', type: 'success' });
+      } else if (key === 'list') {
+        await api.updateItem(selectedAction.item_id, { status: 'listed', date_listed: new Date().toISOString() });
+        setToast({ visible: true, message: 'Item marked as listed!', type: 'success' });
+      } else if (key === 'reprice') {
+        await api.updateItem(selectedAction.item_id, { target_list_price: selectedAction.suggested_price });
+        setToast({ visible: true, message: `Price dropped to $${selectedAction.suggested_price}`, type: 'success' });
+      } else if (key === 'crosslist') {
+        router.push(`/item/${selectedAction.item_id}`);
+        return;
+      }
+      
+      // Refresh data
+      fetchData();
+    } catch (e) {
+      setToast({ visible: true, message: 'Action failed', type: 'error' });
+    }
+  };
+
+  // Handle sold confirmation
+  const handleSoldConfirm = async (soldPrice: number) => {
+    if (!selectedItem) return;
+    await api.updateItem(selectedItem.id, { 
+      status: 'sold', 
+      sold_price: soldPrice,
+      date_sold: new Date().toISOString() 
+    });
+    setToast({ visible: true, message: `Sold for $${soldPrice}! 🎉`, type: 'success' });
+    fetchData();
+  };
 
   // Loading State
   if (loading) {
@@ -182,209 +305,242 @@ export default function HomeScreen() {
   const hasRisk = data.capital_at_risk > 0 || data.dead_stock_count > 0;
 
   return (
-    <ScrollView
-      testID="home-screen"
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); fetchData(); }}
-          tintColor={colors.accent}
-        />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.brandArea}>
-          <Text style={styles.brandName}>Resellr</Text>
-          <Text style={styles.brandTag}>OS</Text>
+    <>
+      <ScrollView
+        testID="home-screen"
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchData(); }}
+            tintColor={colors.accent}
+          />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.brandArea}>
+            <Text style={styles.brandName}>Resellr</Text>
+            <Text style={styles.brandTag}>OS</Text>
+          </View>
+          <TouchableOpacity
+            testID="settings-btn"
+            onPress={() => router.push('/settings')}
+            style={styles.settingsBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.6}
+          >
+            <Feather name="settings" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          testID="settings-btn"
-          onPress={() => router.push('/settings')}
-          style={styles.settingsBtn}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.6}
-        >
-          <Feather name="settings" size={18} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
 
-      {/* Hero Card - Net Profit */}
-      <View testID="hero-profit" style={styles.heroCard}>
-        <View style={styles.heroHeader}>
-          <Text style={styles.heroLabel}>Net Profit</Text>
-          <View style={styles.heroPeriodBadge}>
-            <Text style={styles.heroPeriodText}>This Month</Text>
+        {/* Hero Card - Net Profit */}
+        <View testID="hero-profit" style={styles.heroCard}>
+          <View style={styles.heroHeader}>
+            <Text style={styles.heroLabel}>Net Profit</Text>
+            <View style={styles.heroPeriodBadge}>
+              <Text style={styles.heroPeriodText}>This Month</Text>
+            </View>
+          </View>
+          <Text style={styles.heroValue}>
+            <Text style={styles.heroCurrency}>$</Text>
+            {data.monthly_net_profit.toLocaleString()}
+          </Text>
+          <View style={styles.heroStats}>
+            <View style={styles.heroStatItem}>
+              <Text style={styles.heroStatValue}>${data.monthly_revenue.toLocaleString()}</Text>
+              <Text style={styles.heroStatLabel}>revenue</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStatItem}>
+              <Text style={styles.heroStatValue}>{data.sold_this_month}</Text>
+              <Text style={styles.heroStatLabel}>sold</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStatItem}>
+              <Text style={styles.heroStatValue}>${data.profit_velocity}/d</Text>
+              <Text style={styles.heroStatLabel}>velocity</Text>
+            </View>
           </View>
         </View>
-        <Text style={styles.heroValue}>
-          <Text style={styles.heroCurrency}>$</Text>
-          {data.monthly_net_profit.toLocaleString()}
-        </Text>
-        <View style={styles.heroStats}>
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatValue}>${data.monthly_revenue.toLocaleString()}</Text>
-            <Text style={styles.heroStatLabel}>revenue</Text>
-          </View>
-          <View style={styles.heroStatDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatValue}>{data.sold_this_month}</Text>
-            <Text style={styles.heroStatLabel}>sold</Text>
-          </View>
-          <View style={styles.heroStatDivider} />
-          <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatValue}>${data.profit_velocity}/d</Text>
-            <Text style={styles.heroStatLabel}>velocity</Text>
-          </View>
-        </View>
-      </View>
 
-      {/* Operational Metrics Row */}
-      <View style={styles.metricsRow}>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Sell-Through</Text>
-          <Text style={styles.metricValue}>{data.sell_through_rate}%</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Avg Margin</Text>
-          <Text style={styles.metricValue}>{data.avg_margin}%</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Active</Text>
-          <Text style={styles.metricValue}>{data.active_listings}</Text>
-        </View>
-      </View>
-
-      {/* Capital Overview */}
-      <View style={styles.capitalRow}>
-        <View style={styles.capitalCard}>
-          <Feather name="lock" size={15} color={colors.textSecondary} />
-          <View style={styles.capitalInfo}>
-            <Text style={styles.capitalLabel}>Capital Locked</Text>
-            <Text style={styles.capitalValue}>${data.capital_in_inventory.toLocaleString()}</Text>
+        {/* Operational Metrics Row */}
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Sell-Through</Text>
+            <Text style={styles.metricValue}>{data.sell_through_rate}%</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Avg Margin</Text>
+            <Text style={styles.metricValue}>{data.avg_margin}%</Text>
+          </View>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Active</Text>
+            <Text style={styles.metricValue}>{data.active_listings}</Text>
           </View>
         </View>
-        {hasRisk && (
-          <View style={[styles.capitalCard, styles.capitalCardRisk]}>
-            <Feather name="alert-triangle" size={15} color={colors.warning} />
+
+        {/* Capital Overview */}
+        <View style={styles.capitalRow}>
+          <View style={styles.capitalCard}>
+            <Feather name="lock" size={15} color={colors.textSecondary} />
             <View style={styles.capitalInfo}>
-              <Text style={[styles.capitalLabel, { color: colors.warning }]}>At Risk</Text>
-              <Text style={[styles.capitalValue, { color: colors.warning }]}>${data.capital_at_risk.toLocaleString()}</Text>
+              <Text style={styles.capitalLabel}>Capital Locked</Text>
+              <Text style={styles.capitalValue}>${data.capital_in_inventory.toLocaleString()}</Text>
             </View>
           </View>
-        )}
-      </View>
-
-      {/* Inventory Health */}
-      {data.inventory_age && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Inventory Health</Text>
-          <View style={styles.card}>
-            <HealthBar age={data.inventory_age} />
-          </View>
-        </View>
-      )}
-
-      {/* Profit Trend */}
-      {data.trends?.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Profit Trend</Text>
-            <Text style={styles.sectionSubtitle}>6 months</Text>
-          </View>
-          <View style={styles.card}>
-            <TrendChart data={data.trends} />
-          </View>
-        </View>
-      )}
-
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            testID="quick-add"
-            style={styles.quickActionCard}
-            onPress={() => router.push('/add-item')}
-            activeOpacity={0.6}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.textPrimary }]}>
-              <Feather name="plus" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.quickActionLabel}>Add Item</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="quick-source"
-            style={styles.quickActionCard}
-            onPress={() => router.push('/(tabs)/source')}
-            activeOpacity={0.6}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.accent }]}>
-              <Feather name="target" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.quickActionLabel}>Source Calc</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="quick-deadstock"
-            style={styles.quickActionCard}
-            onPress={() => router.push('/deadstock')}
-            activeOpacity={0.6}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.warning }]}>
-              <Feather name="alert-triangle" size={20} color="#FFFFFF" />
-            </View>
-            <Text style={styles.quickActionLabel}>Dead Stock</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Action Feed */}
-      {data.actions?.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Action Feed</Text>
-            <View style={styles.actionCountBadge}>
-              <Text style={styles.actionCountText}>{data.action_count}</Text>
-            </View>
-          </View>
-          <View style={styles.card}>
-            {data.actions.slice(0, 6).map((action, i) => (
-              <ActionItem
-                key={`${action.item_id}-${action.type}`}
-                action={action}
-                onPress={() => router.push(`/item/${action.item_id}`)}
-                isLast={i === Math.min(data.actions.length, 6) - 1}
-              />
-            ))}
-          </View>
-          {data.actions.length > 6 && (
-            <TouchableOpacity style={styles.viewAllBtn} activeOpacity={0.6}>
-              <Text style={styles.viewAllText}>View all {data.action_count} actions</Text>
-              <Feather name="arrow-right" size={14} color={colors.accent} />
+          {hasRisk && (
+            <TouchableOpacity 
+              style={[styles.capitalCard, styles.capitalCardRisk]}
+              onPress={() => router.push('/deadstock')}
+              activeOpacity={0.6}
+            >
+              <Feather name="alert-triangle" size={15} color={colors.warning} />
+              <View style={styles.capitalInfo}>
+                <Text style={[styles.capitalLabel, { color: colors.warning }]}>At Risk</Text>
+                <Text style={[styles.capitalValue, { color: colors.warning }]}>${data.capital_at_risk.toLocaleString()}</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
-      )}
 
-      {/* Empty Action State */}
-      {(!data.actions || data.actions.length === 0) && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Action Feed</Text>
-          <View style={[styles.card, styles.emptyCard]}>
-            <View style={styles.emptyIcon}>
-              <Feather name="check-circle" size={24} color={colors.success} />
+        {/* Inventory Health */}
+        {data.inventory_age && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Inventory Health</Text>
+            <View style={styles.card}>
+              <HealthBar age={data.inventory_age} />
             </View>
-            <Text style={styles.emptyTitle}>All caught up</Text>
-            <Text style={styles.emptyText}>No urgent actions needed</Text>
+          </View>
+        )}
+
+        {/* Profit Trend */}
+        {data.trends?.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Profit Trend</Text>
+              <Text style={styles.sectionSubtitle}>6 months</Text>
+            </View>
+            <View style={styles.card}>
+              <TrendChart data={data.trends} />
+            </View>
+          </View>
+        )}
+
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity
+              testID="quick-add"
+              style={styles.quickActionCard}
+              onPress={() => router.push('/quick-add')}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: colors.textPrimary }]}>
+                <Feather name="plus" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionLabel}>Quick Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="quick-source"
+              style={styles.quickActionCard}
+              onPress={() => router.push('/(tabs)/source')}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: colors.accent }]}>
+                <Feather name="target" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionLabel}>Source Calc</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="quick-deadstock"
+              style={styles.quickActionCard}
+              onPress={() => router.push('/deadstock')}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: colors.warning }]}>
+                <Feather name="alert-triangle" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickActionLabel}>Dead Stock</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      )}
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Action Feed */}
+        {data.actions?.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Action Feed</Text>
+              <View style={styles.actionCountBadge}>
+                <Text style={styles.actionCountText}>{data.action_count}</Text>
+              </View>
+            </View>
+            <View style={styles.card}>
+              {data.actions.slice(0, 6).map((action, i) => (
+                <ActionItem
+                  key={`${action.item_id}-${action.type}`}
+                  action={action}
+                  onQuickAction={handleQuickAction}
+                  onNavigate={() => router.push(`/item/${action.item_id}`)}
+                  isLast={i === Math.min(data.actions.length, 6) - 1}
+                />
+              ))}
+            </View>
+            {data.actions.length > 6 && (
+              <TouchableOpacity style={styles.viewAllBtn} activeOpacity={0.6}>
+                <Text style={styles.viewAllText}>View all {data.action_count} actions</Text>
+                <Feather name="arrow-right" size={14} color={colors.accent} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Empty Action State */}
+        {(!data.actions || data.actions.length === 0) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Action Feed</Text>
+            <View style={[styles.card, styles.emptyCard]}>
+              <View style={styles.emptyIcon}>
+                <Feather name="check-circle" size={24} color={colors.success} />
+              </View>
+              <Text style={styles.emptyTitle}>All caught up</Text>
+              <Text style={styles.emptyText}>No urgent actions needed</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+
+      {/* Quick Action Sheet */}
+      <QuickActionSheet
+        visible={quickActionVisible}
+        onClose={() => { setQuickActionVisible(false); setSelectedAction(null); }}
+        title={selectedAction?.title}
+        subtitle={selectedAction?.message}
+        actions={getQuickActions(selectedAction)}
+        onAction={executeQuickAction}
+      />
+
+      {/* Sold Modal */}
+      <SoldModal
+        visible={soldModalVisible}
+        onClose={() => { setSoldModalVisible(false); setSelectedItem(null); }}
+        item={selectedItem}
+        onConfirm={handleSoldConfirm}
+      />
+
+      {/* Toast */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+    </>
   );
 }
 
@@ -755,13 +911,18 @@ const styles = StyleSheet.create({
   },
   actionItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 14,
-    gap: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
   },
   actionItemBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
+  },
+  actionItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   actionIcon: {
     width: 32,
@@ -800,6 +961,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Mulish_400Regular',
     fontSize: 12,
     color: colors.textTertiary,
+  },
+  quickActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceHighlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
 
   // View All

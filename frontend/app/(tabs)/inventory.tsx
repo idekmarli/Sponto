@@ -5,14 +5,17 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows, healthLabels } from '../../src/theme';
 import { api } from '../../src/api';
+import { SoldModal } from '../../src/components/SoldModal';
+import { Toast } from '../../src/components/Toast';
 
-const FILTERS = ['All', 'Listed', 'Crosslisted', 'Sourced', 'Sold', 'Completed'];
+const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
 
 // Item Card Component
-function ItemCard({ item, onPress }: { item: any; onPress: () => void }) {
+function ItemCard({ item, onPress, onQuickSold }: { item: any; onPress: () => void; onQuickSold: () => void }) {
   const health = healthLabels[item.health] || healthLabels.fresh;
   const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
   const isSold = ['sold', 'shipped', 'completed'].includes(item.status);
+  const isListed = ['listed', 'crosslisted'].includes(item.status);
   const hasPhoto = item.photos?.length > 0;
 
   return (
@@ -72,6 +75,18 @@ function ItemCard({ item, onPress }: { item: any; onPress: () => void }) {
           )}
         </View>
       </View>
+
+      {/* Quick Sold Button */}
+      {isListed && (
+        <TouchableOpacity
+          testID={`quick-sold-${item.id}`}
+          style={styles.quickSoldBtn}
+          onPress={(e) => { e.stopPropagation(); onQuickSold(); }}
+          activeOpacity={0.6}
+        >
+          <Feather name="dollar-sign" size={16} color={colors.success} />
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -83,6 +98,11 @@ export default function InventoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('All');
+
+  // Sold Modal State
+  const [soldModalVisible, setSoldModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
 
   const fetchItems = useCallback(async () => {
     try {
@@ -101,8 +121,28 @@ export default function InventoryScreen() {
     fetchItems();
   }, [fetchItems]);
 
+  const handleQuickSold = (item: any) => {
+    setSelectedItem(item);
+    setSoldModalVisible(true);
+  };
+
+  const handleSoldConfirm = async (soldPrice: number) => {
+    if (!selectedItem) return;
+    await api.updateItem(selectedItem.id, {
+      status: 'sold',
+      sold_price: soldPrice,
+      date_sold: new Date().toISOString(),
+    });
+    setToast({ visible: true, message: `Sold for $${soldPrice}! 🎉`, type: 'success' });
+    fetchItems();
+  };
+
   const renderItem = ({ item }: { item: any }) => (
-    <ItemCard item={item} onPress={() => router.push(`/item/${item.id}`)} />
+    <ItemCard 
+      item={item} 
+      onPress={() => router.push(`/item/${item.id}`)}
+      onQuickSold={() => handleQuickSold(item)}
+    />
   );
 
   const ListHeader = () => (
@@ -116,7 +156,7 @@ export default function InventoryScreen() {
         <TouchableOpacity
           testID="add-item-btn"
           style={styles.addButton}
-          onPress={() => router.push('/add-item')}
+          onPress={() => router.push('/quick-add')}
           activeOpacity={0.7}
         >
           <Feather name="plus" size={20} color="#FFFFFF" />
@@ -169,7 +209,7 @@ export default function InventoryScreen() {
           <TouchableOpacity
             testID="empty-add-btn"
             style={styles.emptyButton}
-            onPress={() => router.push('/add-item')}
+            onPress={() => router.push('/quick-add')}
             activeOpacity={0.7}
           >
             <Feather name="plus" size={18} color="#FFFFFF" />
@@ -181,24 +221,42 @@ export default function InventoryScreen() {
   }
 
   return (
-    <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <FlatList
-        data={items}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={ListHeader}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); fetchItems(); }}
-            tintColor={colors.accent}
-          />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+    <>
+      <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + 16 }]}>
+        <FlatList
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={ListHeader}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); fetchItems(); }}
+              tintColor={colors.accent}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+        />
+      </View>
+
+      {/* Sold Modal */}
+      <SoldModal
+        visible={soldModalVisible}
+        onClose={() => { setSoldModalVisible(false); setSelectedItem(null); }}
+        item={selectedItem}
+        onConfirm={handleSoldConfirm}
       />
-    </View>
+
+      {/* Toast */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+    </>
   );
 }
 
@@ -397,6 +455,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Mulish_500Medium',
     fontSize: 12,
     color: colors.textTertiary,
+  },
+
+  // Quick Sold Button
+  quickSoldBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.successLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
 
   // Empty State
