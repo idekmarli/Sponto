@@ -3,27 +3,49 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, space, radius, fontFamily, fontSize, spacing, shadows, healthConfig } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, statusConfig, tagConfig, MANUAL_TAGS } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
-import { Badge, EmptyState } from '../../src/components/UI';
+import { EmptyState } from '../../src/components/UI';
 
 const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
+const MAX_VISIBLE_TAGS = 3;
 
-// Item Card Component - Elegant, scannable design
+// Tag Chip Component - Small, subtle
+function TagChip({ tagKey, isDerived = false }: { tagKey: string; isDerived?: boolean }) {
+  const config = tagConfig[tagKey];
+  if (!config) return null;
+  
+  return (
+    <View style={[styles.tagChip, { backgroundColor: config.bg }]}>
+      <Text style={[styles.tagText, { color: config.color }, isDerived && styles.tagTextDerived]}>
+        {config.label}
+      </Text>
+    </View>
+  );
+}
+
+// Item Card Component - Photo-first, scannable
 function ItemCard({ item, onPress, onQuickSold, formatAmount }: { 
   item: any; 
   onPress: () => void; 
   onQuickSold: () => void;
   formatAmount: (n: number) => string;
 }) {
-  const health = healthConfig[item.health] || healthConfig.fresh;
+  const statusCfg = statusConfig[item.status] || statusConfig.sourced;
   const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
   const isSold = ['sold', 'shipped', 'completed'].includes(item.status);
   const isListed = ['listed', 'crosslisted'].includes(item.status);
   const hasPhoto = item.photos?.length > 0;
+  
+  // Combine manual tags + derived tags for display
+  const manualTags = item.tags || [];
+  const derivedTags = item.derived_tags || [];
+  const allTags = [...manualTags, ...derivedTags];
+  const visibleTags = allTags.slice(0, MAX_VISIBLE_TAGS);
+  const overflowCount = allTags.length - MAX_VISIBLE_TAGS;
 
   return (
     <TouchableOpacity
@@ -38,65 +60,72 @@ function ItemCard({ item, onPress, onQuickSold, formatAmount }: {
           <Image source={{ uri: item.photos[0] }} style={styles.photo} />
         ) : (
           <View style={styles.photoEmpty}>
-            <Feather name="camera" size={16} color={colors.textTertiary} />
+            <Feather name="camera" size={20} color={colors.textMuted} />
           </View>
         )}
-        {/* Health dot indicator */}
-        <View style={[styles.healthDot, { backgroundColor: health.color }]} />
       </View>
 
       {/* Content */}
       <View style={styles.itemContent}>
-        {/* Title row */}
+        {/* Title row with status */}
         <View style={styles.titleRow}>
-          <View style={styles.titleArea}>
-            <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.itemMeta}>
-              {item.brand}{item.size ? ` · ${item.size}` : ''}
-            </Text>
+          <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+            <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
           </View>
-          <View style={styles.priceArea}>
+        </View>
+
+        {/* Meta */}
+        <Text style={styles.itemMeta}>
+          {item.brand}{item.size ? ` · ${item.size}` : ''}{item.category ? ` · ${item.category}` : ''}
+        </Text>
+
+        {/* Tags Row */}
+        {allTags.length > 0 && (
+          <View style={styles.tagsRow}>
+            {visibleTags.map((tag) => (
+              <TagChip 
+                key={tag} 
+                tagKey={tag} 
+                isDerived={derivedTags.includes(tag)}
+              />
+            ))}
+            {overflowCount > 0 && (
+              <View style={styles.tagOverflow}>
+                <Text style={styles.tagOverflowText}>+{overflowCount}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Price Row */}
+        <View style={styles.priceRow}>
+          <View style={styles.priceLeft}>
             <Text style={styles.price}>{formatAmount(displayPrice)}</Text>
             <Text style={[styles.profit, { color: item.net_profit >= 0 ? colors.success : colors.error }]}>
               {item.net_profit >= 0 ? '+' : ''}{formatAmount(item.net_profit)}
             </Text>
           </View>
-        </View>
-
-        {/* Bottom row */}
-        <View style={styles.bottomRow}>
-          <Badge 
-            label={health.label} 
-            variant={item.health === 'fresh' ? 'success' : item.health === 'stale' ? 'warning' : item.health === 'dead_stock' ? 'error' : 'default'}
-            size="sm"
-          />
-          <View style={styles.platforms}>
-            {item.platforms?.slice(0, 2).map((p: string) => (
-              <Text key={p} style={styles.platformText}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </Text>
-            ))}
+          <View style={styles.priceRight}>
+            {!isSold && item.days_listed != null && item.days_listed > 0 && (
+              <Text style={styles.daysText}>{item.days_listed}d</Text>
+            )}
+            {isSold && item.days_to_sell != null && (
+              <Text style={styles.daysText}>{item.days_to_sell}d</Text>
+            )}
+            {isListed && (
+              <TouchableOpacity
+                testID={`quick-sold-${item.id}`}
+                style={styles.quickSoldBtn}
+                onPress={(e) => { e.stopPropagation(); onQuickSold(); }}
+                activeOpacity={0.6}
+              >
+                <Feather name="dollar-sign" size={14} color={colors.success} />
+              </TouchableOpacity>
+            )}
           </View>
-          {!isSold && item.days_listed != null && item.days_listed > 0 && (
-            <Text style={styles.daysText}>{item.days_listed}d</Text>
-          )}
-          {isSold && item.days_to_sell != null && (
-            <Text style={styles.daysText}>{item.days_to_sell}d to sell</Text>
-          )}
         </View>
       </View>
-
-      {/* Quick Sold Button */}
-      {isListed && (
-        <TouchableOpacity
-          testID={`quick-sold-${item.id}`}
-          style={styles.quickSoldBtn}
-          onPress={(e) => { e.stopPropagation(); onQuickSold(); }}
-          activeOpacity={0.6}
-        >
-          <Feather name="dollar-sign" size={16} color={colors.success} />
-        </TouchableOpacity>
-      )}
     </TouchableOpacity>
   );
 }
@@ -176,14 +205,10 @@ export default function InventoryScreen() {
       </View>
 
       {/* Filters */}
-      <FlatList
-        horizontal
-        data={FILTERS}
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterList}
-        contentContainerStyle={styles.filterContent}
-        renderItem={({ item: f }) => (
+      <View style={styles.filterRow}>
+        {FILTERS.map((f) => (
           <TouchableOpacity
+            key={f}
             testID={`filter-${f.toLowerCase()}`}
             style={[styles.filterChip, filter === f && styles.filterChipActive]}
             onPress={() => setFilter(f)}
@@ -191,9 +216,8 @@ export default function InventoryScreen() {
           >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>{f}</Text>
           </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item}
-      />
+        ))}
+      </View>
     </View>
   );
 
@@ -280,8 +304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
+    ...typography.bodySmall,
     color: colors.textTertiary,
     marginTop: space[4],
   },
@@ -289,25 +312,21 @@ const styles = StyleSheet.create({
   // Header
   headerArea: {
     paddingHorizontal: spacing.screenPadding,
-    marginBottom: space[4],
+    marginBottom: space[5],
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: space[5],
+    marginBottom: space[6],
   },
   title: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize['3xl'],
-    color: colors.textPrimary,
-    letterSpacing: -0.8,
+    ...typography.h1,
+    marginBottom: space[1],
   },
   subtitle: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
+    ...typography.bodySmall,
     color: colors.textTertiary,
-    marginTop: space[1],
   },
   addButton: {
     width: spacing.touchTarget,
@@ -320,11 +339,8 @@ const styles = StyleSheet.create({
   },
 
   // Filters
-  filterList: {
-    marginHorizontal: -spacing.screenPadding,
-  },
-  filterContent: {
-    paddingHorizontal: spacing.screenPadding,
+  filterRow: {
+    flexDirection: 'row',
     gap: space[2],
   },
   filterChip: {
@@ -348,7 +364,7 @@ const styles = StyleSheet.create({
 
   // List
   listContent: {
-    paddingBottom: space[6],
+    paddingBottom: space[8],
   },
   separator: {
     height: space[3],
@@ -360,67 +376,101 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginHorizontal: spacing.screenPadding,
     borderRadius: radius.lg,
-    padding: space[3] + 2,
-    gap: space[3],
-    ...shadows.sm,
+    overflow: 'hidden',
+    ...shadows.card,
   },
   photoContainer: {
-    position: 'relative',
+    width: 100,
   },
   photo: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.md,
+    width: 100,
+    height: '100%',
+    minHeight: 120,
     backgroundColor: colors.surfaceMuted,
   },
   photoEmpty: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.md,
+    width: 100,
+    height: '100%',
+    minHeight: 120,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  healthDot: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.surface,
   },
 
   // Item Content
   itemContent: {
     flex: 1,
+    padding: space[3] + 2,
     justifyContent: 'space-between',
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: space[2],
-  },
-  titleArea: {
-    flex: 1,
-    marginRight: space[3],
+    gap: space[2],
+    marginBottom: space[1],
   },
   itemTitle: {
+    flex: 1,
     fontFamily: fontFamily.bold,
     fontSize: fontSize.md,
     color: colors.textPrimary,
     lineHeight: fontSize.md * 1.3,
-    marginBottom: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: space[2],
+    paddingVertical: space[1],
+    borderRadius: radius.sm,
+  },
+  statusText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
   },
   itemMeta: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    ...typography.caption,
+    marginBottom: space[2],
   },
-  priceArea: {
+
+  // Tags
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[1],
+    marginBottom: space[2],
+  },
+  tagChip: {
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+  },
+  tagText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize['2xs'],
+    letterSpacing: 0.2,
+  },
+  tagTextDerived: {
+    fontStyle: 'italic',
+  },
+  tagOverflow: {
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+    backgroundColor: colors.surfaceMuted,
+  },
+  tagOverflowText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize['2xs'],
+    color: colors.textTertiary,
+  },
+
+  // Price Row
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-end',
+  },
+  priceLeft: {
+    gap: 2,
   },
   price: {
     fontFamily: fontFamily.bold,
@@ -431,40 +481,24 @@ const styles = StyleSheet.create({
   profit: {
     fontFamily: fontFamily.mono,
     fontSize: fontSize.xs,
-    marginTop: 2,
   },
-
-  // Bottom Row
-  bottomRow: {
+  priceRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[2],
   },
-  platforms: {
-    flexDirection: 'row',
-    gap: space[1],
-    flex: 1,
-  },
-  platformText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-  },
   daysText: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.mono,
     fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
-
-  // Quick Sold Button
   quickSoldBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.successLight,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
   },
 
   // Empty State

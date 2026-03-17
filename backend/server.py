@@ -45,6 +45,7 @@ class ItemCreate(BaseModel):
     notes: str = ""
     photos: List[str] = []
     is_draft: bool = False
+    tags: List[str] = []  # Manual workflow tags
 
 class ItemUpdate(BaseModel):
     title: Optional[str] = None
@@ -68,6 +69,7 @@ class ItemUpdate(BaseModel):
     notes: Optional[str] = None
     photos: Optional[List[str]] = None
     is_draft: Optional[bool] = None
+    tags: Optional[List[str]] = None  # Manual workflow tags
 
 class SettingsModel(BaseModel):
     platform_fees: Dict[str, float] = {
@@ -76,7 +78,8 @@ class SettingsModel(BaseModel):
     }
     target_roi: float = 50.0
     min_profit: float = 10.0
-    dead_stock_thresholds: Dict[str, int] = {"warning": 30, "danger": 45, "critical": 60, "dead": 90}
+    min_margin: float = 30.0  # Margin threshold for margin_risk tag
+    dead_stock_thresholds: Dict[str, int] = {"stale": 45, "dead": 90}
     default_packaging_cost: float = 2.0
     default_shipping: float = 5.0
     selected_platforms: List[str] = ["ebay", "depop", "vinted"]
@@ -108,7 +111,8 @@ def parse_date(s):
     except Exception:
         return None
 
-def compute_item_fields(item):
+def compute_item_fields(item, settings=None):
+    """Compute derived fields including health state and derived tags."""
     cost_basis = item.get("purchase_price", 0) + item.get("shipping_to_acquire", 0) + item.get("prep_cost", 0)
     item["total_cost_basis"] = round(cost_basis, 2)
     sold_price = item.get("sold_price", 0)
@@ -151,7 +155,8 @@ def compute_item_fields(item):
     status = item.get("status", "sourced")
     days_listed = item.get("days_listed", 0)
     platforms = item.get("platforms", [])
-    has_photos = len(item.get("photos", [])) > 0
+    photos = item.get("photos", [])
+    has_photos = len(photos) > 0
 
     if status in ["sold", "shipped", "completed"]:
         if status == "sold" and not sold_date:
@@ -169,15 +174,52 @@ def compute_item_fields(item):
     elif days_listed >= 90:
         item["health"] = "dead_stock"
     elif days_listed >= 45:
-        item["health"] = "critical_stale"
-    elif days_listed >= 30:
         item["health"] = "stale"
-    elif days_listed >= 20:
+    elif days_listed >= 30:
         item["health"] = "approaching_stale"
     elif status in ["listed"] and len(platforms) <= 1 and days_listed >= 10:
         item["health"] = "crosslist_candidate"
     else:
         item["health"] = "fresh"
+
+    # ── Derived Tags ──
+    # Get settings for configurable thresholds
+    min_margin = settings.get("min_margin", 30.0) if settings else 30.0
+    
+    derived_tags = []
+    manual_tags = item.get("tags", [])
+    
+    # Check for incomplete - missing required fields
+    title = item.get("title", "").strip()
+    category = item.get("category", "").strip()
+    purchase_price = item.get("purchase_price", 0)
+    date_acquired = item.get("date_acquired", "").strip()
+    
+    if not title or not category or purchase_price <= 0 or not date_acquired or not has_photos:
+        derived_tags.append("incomplete")
+    
+    # Check for stale (45+ days listed)
+    if days_listed >= 45 and status in ["listed", "crosslisted"]:
+        derived_tags.append("stale")
+    
+    # Check for dead_stock (90+ days listed)
+    if days_listed >= 90 and status in ["listed", "crosslisted"]:
+        derived_tags.append("dead_stock")
+    
+    # Check for margin_risk
+    if margin < min_margin and status not in ["sold", "shipped", "completed"]:
+        derived_tags.append("margin_risk")
+    
+    # Check for sold_pending_cleanup
+    if status == "sold" and item["health"] == "sold_pending":
+        derived_tags.append("sold_pending_cleanup")
+    
+    # Check for needs_cleanup - sold/completed but may need platform cleanup
+    if status in ["sold", "shipped", "completed"] and len(platforms) > 1:
+        derived_tags.append("needs_cleanup")
+    
+    item["derived_tags"] = derived_tags
+    item["all_tags"] = list(set(manual_tags + derived_tags))
 
     return item
 
@@ -382,20 +424,26 @@ async def get_items(
         query["platforms"] = platform
     if category:
         query["category"] = category
-    items = await db.items.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [compute_item_fields(i) for i in items]
-
-@api_router.get("/items/{item_id}")
-async def get_item(item_id: str):
-    item = await db.items.find_one({"id": item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-    computed = compute_item_fields(item)
-    all_items = await db.items.find({}, {"_id": 0}).to_list(1000)
-    all_items = [compute_item_fields(i) for i in all_items]
+    
     settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     if not settings:
         settings = SettingsModel().dict()
+    
+    items = await db.items.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [compute_item_fields(i, settings) for i in items]
+
+@api_router.get("/items/{item_id}")
+async def get_item(item_id: str):
+    settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
+    if not settings:
+        settings = SettingsModel().dict()
+    
+    item = await db.items.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    computed = compute_item_fields(item, settings)
+    all_items = await db.items.find({}, {"_id": 0}).to_list(1000)
+    all_items = [compute_item_fields(i, settings) for i in all_items]
     computed["smart_actions"] = get_item_smart_actions(computed, all_items, settings)
 
     # Category context
@@ -440,11 +488,12 @@ async def delete_item(item_id: str):
 
 @api_router.get("/dashboard")
 async def get_dashboard():
-    items = await db.items.find({}, {"_id": 0}).to_list(1000)
-    items = [compute_item_fields(i) for i in items]
     settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     if not settings:
         settings = SettingsModel().dict()
+    
+    items = await db.items.find({}, {"_id": 0}).to_list(1000)
+    items = [compute_item_fields(i, settings) for i in items]
 
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)

@@ -40,7 +40,7 @@ function ActionItem({ action, onQuickAction, onNavigate, isLast }: {
   onNavigate: () => void; 
   isLast: boolean;
 }) {
-  const config = actionTypeConfig[action.type] || actionTypeConfig.incomplete;
+  const config = actionTypeConfig[action.type] || actionTypeConfig.default;
   const priority = action.priority || 7;
   const priorityInfo = priorityConfig[priority] || priorityConfig[7];
   const { formatAmount } = useCurrency();

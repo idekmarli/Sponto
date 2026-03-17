@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, space, radius, fontFamily, fontSize, spacing, shadows, statusConfig, healthConfig } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, statusConfig, healthConfig, tagConfig, MANUAL_TAGS, DERIVED_TAGS } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
-import { Badge, Divider } from '../../src/components/UI';
+import { Divider } from '../../src/components/UI';
 
 // Financial Row Component
 function FinancialRow({ label, value, highlight = false, bold = false }: { 
@@ -19,6 +19,42 @@ function FinancialRow({ label, value, highlight = false, bold = false }: {
       <Text style={[finStyles.label, bold && finStyles.labelBold]}>{label}</Text>
       <Text style={[finStyles.value, bold && finStyles.valueBold]}>{value}</Text>
     </View>
+  );
+}
+
+// Tag Chip - Editable
+function TagChip({ tag, isActive, isDerived, onPress }: {
+  tag: typeof MANUAL_TAGS[number] | typeof DERIVED_TAGS[number];
+  isActive: boolean;
+  isDerived: boolean;
+  onPress?: () => void;
+}) {
+  const config = tagConfig[tag.key];
+  if (!config) return null;
+  
+  return (
+    <TouchableOpacity
+      style={[
+        tagStyles.chip,
+        isActive && { backgroundColor: config.bg, borderColor: config.color },
+        !isActive && tagStyles.chipInactive,
+        isDerived && tagStyles.chipDerived,
+      ]}
+      onPress={isDerived ? undefined : onPress}
+      disabled={isDerived}
+      activeOpacity={isDerived ? 1 : 0.6}
+    >
+      <Feather name={tag.icon as any} size={12} color={isActive ? config.color : colors.textMuted} />
+      <Text style={[
+        tagStyles.text,
+        isActive && { color: config.color },
+        !isActive && tagStyles.textInactive,
+        isDerived && tagStyles.textDerived,
+      ]}>
+        {config.label}
+      </Text>
+      {isDerived && <Text style={tagStyles.autoLabel}>(auto)</Text>}
+    </TouchableOpacity>
   );
 }
 
@@ -44,6 +80,7 @@ export default function ItemDetailScreen() {
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [savingTags, setSavingTags] = useState(false);
 
   const [soldModalVisible, setSoldModalVisible] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
@@ -71,6 +108,25 @@ export default function ItemDetailScreen() {
       setToast({ visible: true, message: 'Failed to update', type: 'error' });
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const toggleTag = async (tagKey: string) => {
+    if (!item || savingTags) return;
+    setSavingTags(true);
+    try {
+      const currentTags = item.tags || [];
+      const newTags = currentTags.includes(tagKey)
+        ? currentTags.filter((t: string) => t !== tagKey)
+        : [...currentTags, tagKey];
+      
+      const updated = await api.updateItem(id!, { tags: newTags });
+      setItem(updated);
+    } catch (e) {
+      console.error(e);
+      setToast({ visible: true, message: 'Failed to update tags', type: 'error' });
+    } finally {
+      setSavingTags(false);
     }
   };
 
@@ -116,18 +172,20 @@ export default function ItemDetailScreen() {
     );
   }
 
+  const statusCfg = statusConfig[item.status] || statusConfig.sourced;
   const health = healthConfig[item.health] || healthConfig.fresh;
   const hasPhoto = item.photos?.length > 0;
-  const isSold = ['sold', 'shipped', 'completed'].includes(item.status);
   const isCompleted = item.status === 'completed';
   const nextStep = getNextStep(item.status);
+  const manualTags = item.tags || [];
+  const derivedTags = item.derived_tags || [];
 
   return (
     <>
       <ScrollView
         testID="item-detail-screen"
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[2] }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[2], paddingBottom: insets.bottom + space[8] }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Navigation */}
@@ -166,12 +224,14 @@ export default function ItemDetailScreen() {
         {/* Title & Status */}
         <Text style={styles.itemTitle}>{item.title}</Text>
         <View style={styles.badges}>
-          <Badge 
-            label={health.label} 
-            variant={item.health === 'fresh' ? 'success' : item.health === 'stale' ? 'warning' : item.health === 'dead_stock' ? 'error' : 'default'}
-            dot
-          />
-          <Badge label={statusConfig[item.status]?.label || item.status} />
+          <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+            <Feather name={statusCfg.icon as any} size={12} color={statusCfg.color} />
+            <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+          </View>
+          <View style={[styles.healthBadge, { backgroundColor: health.bg }]}>
+            <View style={[styles.healthDot, { backgroundColor: health.color }]} />
+            <Text style={[styles.healthText, { color: health.color }]}>{health.label}</Text>
+          </View>
         </View>
 
         {/* Primary Action */}
@@ -230,6 +290,45 @@ export default function ItemDetailScreen() {
           </View>
         )}
 
+        {/* ─── WORKFLOW TAGS ─── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Workflow Tags</Text>
+            {savingTags && <ActivityIndicator size="small" color={colors.accent} />}
+          </View>
+          
+          {/* Manual Tags */}
+          <Text style={styles.tagGroupLabel}>Manual</Text>
+          <View style={styles.tagsGrid}>
+            {MANUAL_TAGS.map((tag) => (
+              <TagChip
+                key={tag.key}
+                tag={tag}
+                isActive={manualTags.includes(tag.key)}
+                isDerived={false}
+                onPress={() => toggleTag(tag.key)}
+              />
+            ))}
+          </View>
+
+          {/* Derived Tags */}
+          {derivedTags.length > 0 && (
+            <>
+              <Text style={[styles.tagGroupLabel, { marginTop: space[4] }]}>System</Text>
+              <View style={styles.tagsGrid}>
+                {DERIVED_TAGS.filter(tag => derivedTags.includes(tag.key)).map((tag) => (
+                  <TagChip
+                    key={tag.key}
+                    tag={tag}
+                    isActive={true}
+                    isDerived={true}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+
         {/* Financials */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Financials</Text>
@@ -251,6 +350,7 @@ export default function ItemDetailScreen() {
               </Text>
             </View>
             <FinancialRow label="ROI" value={`${item.roi}%`} />
+            <FinancialRow label="Margin" value={`${item.margin}%`} />
           </View>
         </View>
 
@@ -285,7 +385,7 @@ export default function ItemDetailScreen() {
                 </Text>
               </View>
             </View>
-            {item.days_to_sell != null && (
+            {item.days_to_sell != null && item.days_to_sell > 0 && (
               <View style={styles.timelineSummary}>
                 <Text style={styles.timelineSummaryText}>{item.days_to_sell} days to sell</Text>
               </View>
@@ -306,20 +406,10 @@ export default function ItemDetailScreen() {
         {/* Secondary Actions */}
         {!isCompleted && (
           <View style={styles.secondaryActions}>
-            {['listed', 'crosslisted'].includes(item.status) && (
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() => updateStatus('crosslisted')}
-                activeOpacity={0.6}
-              >
-                <Feather name="copy" size={16} color={colors.textSecondary} />
-                <Text style={styles.secondaryBtnText}>Add Platform</Text>
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
               testID="action-archive"
               style={[styles.secondaryBtn, { backgroundColor: colors.warningLight }]}
-              onPress={() => updateStatus('completed')}
+              onPress={() => updateStatus('archived')}
               activeOpacity={0.6}
             >
               <Feather name="archive" size={16} color={colors.warning} />
@@ -327,8 +417,6 @@ export default function ItemDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
-
-        <View style={{ height: space[12] }} />
       </ScrollView>
 
       <SoldModal
@@ -348,6 +436,42 @@ export default function ItemDetailScreen() {
   );
 }
 
+const tagStyles = StyleSheet.create({
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1] + 2,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  chipInactive: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+  },
+  chipDerived: {
+    opacity: 0.8,
+  },
+  text: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+  },
+  textInactive: {
+    color: colors.textTertiary,
+  },
+  textDerived: {
+    fontStyle: 'italic',
+  },
+  autoLabel: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize['2xs'],
+    color: colors.textMuted,
+    marginLeft: 2,
+  },
+});
+
 const finStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -362,9 +486,7 @@ const finStyles = StyleSheet.create({
     borderRadius: radius.md,
   },
   label: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    ...typography.bodySmall,
   },
   labelBold: {
     fontFamily: fontFamily.bold,
@@ -394,8 +516,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
+    ...typography.bodySmall,
     color: colors.textTertiary,
     marginTop: space[4],
   },
@@ -411,15 +532,11 @@ const styles = StyleSheet.create({
     marginBottom: space[5],
   },
   errorTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xl,
-    color: colors.textPrimary,
+    ...typography.h3,
     marginBottom: space[2],
   },
   errorText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.md,
-    color: colors.textSecondary,
+    ...typography.body,
     marginBottom: space[6],
   },
   backBtn: {
@@ -470,24 +587,48 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   photoEmptyText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textTertiary,
+    ...typography.caption,
   },
 
   // Title & Badges
   itemTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize['2xl'] + 2,
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
+    ...typography.h2,
     lineHeight: fontSize['2xl'] * 1.3,
     marginBottom: space[3],
   },
   badges: {
     flexDirection: 'row',
     gap: space[2],
-    marginBottom: space[4],
+    marginBottom: space[5],
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[1] + 2,
+    paddingHorizontal: space[3],
+    paddingVertical: space[1] + 2,
+    borderRadius: radius.md,
+  },
+  statusText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+  },
+  healthBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingHorizontal: space[3],
+    paddingVertical: space[1] + 2,
+    borderRadius: radius.md,
+  },
+  healthDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  healthText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
   },
 
   // Primary Action
@@ -498,7 +639,7 @@ const styles = StyleSheet.create({
     gap: space[2] + 2,
     borderRadius: radius.full,
     paddingVertical: space[4],
-    marginBottom: space[4],
+    marginBottom: space[5],
     ...shadows.md,
   },
   primaryActionText: {
@@ -516,7 +657,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successLight,
     borderRadius: radius.lg,
     paddingVertical: space[3] + 2,
-    marginBottom: space[4],
+    marginBottom: space[5],
   },
   completedText: {
     fontFamily: fontFamily.bold,
@@ -539,9 +680,7 @@ const styles = StyleSheet.create({
     ...shadows.xs,
   },
   quickInfoLabel: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
+    ...typography.caption,
     marginBottom: space[1],
   },
   quickInfoValue: {
@@ -573,12 +712,23 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: space[6],
   },
-  sectionTitle: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
-    color: colors.textPrimary,
-    letterSpacing: -0.2,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: space[3],
+  },
+  sectionTitle: {
+    ...typography.h4,
+  },
+  tagGroupLabel: {
+    ...typography.labelSmall,
+    marginBottom: space[2],
+  },
+  tagsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space[2],
   },
 
   // Card
@@ -635,9 +785,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timelineLabel: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    ...typography.label,
   },
   timelineValue: {
     fontFamily: fontFamily.mono,
@@ -660,8 +808,7 @@ const styles = StyleSheet.create({
 
   // Notes
   notesText: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
+    ...typography.bodySmall,
     color: colors.textPrimary,
     lineHeight: fontSize.sm * 1.6,
     paddingVertical: space[2],
