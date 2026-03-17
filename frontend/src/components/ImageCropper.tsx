@@ -128,7 +128,27 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
 
   // Calculate displayed image dimensions maintaining aspect ratio
   const onImageLoad = (event: any) => {
-    const { width, height } = event.nativeEvent.source;
+    // Handle different event structures between web and native
+    let width, height;
+    
+    if (event.nativeEvent?.source) {
+      // Web format
+      width = event.nativeEvent.source.width;
+      height = event.nativeEvent.source.height;
+    } else if (event.nativeEvent?.width) {
+      // Native format (iOS/Android)
+      width = event.nativeEvent.width;
+      height = event.nativeEvent.height;
+    } else if (event.source) {
+      // Alternative format
+      width = event.source.width;
+      height = event.source.height;
+    } else {
+      // Fallback - use screen dimensions as estimate
+      width = SCREEN_WIDTH;
+      height = SCREEN_HEIGHT * 0.6;
+    }
+    
     setOriginalDimensions({ width, height });
     
     const maxWidth = SCREEN_WIDTH - CROP_PADDING * 2;
