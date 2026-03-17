@@ -366,13 +366,14 @@ const styles = StyleSheet.create({
   },
   excellentBadge: {
     position: 'absolute',
-    top: space[2],
-    right: space[2],
+    top: -6,
+    right: -4,
     backgroundColor: colors.success,
     paddingHorizontal: space[2],
     paddingVertical: 3,
     borderRadius: radius.sm,
     zIndex: 10,
+    ...shadows.sm,
   },
   excellentText: {
     fontFamily: fontFamily.bold,
