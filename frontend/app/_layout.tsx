@@ -1,18 +1,18 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useFonts, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
-import { Mulish_400Regular, Mulish_500Medium, Mulish_600SemiBold, Mulish_700Bold } from '@expo-google-fonts/mulish';
+import { useFonts } from '@expo-google-fonts/dm-sans';
+import { DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { colors } from '../src/theme';
+import { CurrencyProvider } from '../src/currency';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_700Bold,
-    Mulish_400Regular,
-    Mulish_500Medium,
-    Mulish_600SemiBold,
-    Mulish_700Bold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
     SpaceMono_400Regular,
     SpaceMono_700Bold,
   });
@@ -26,7 +26,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <CurrencyProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
@@ -37,7 +37,7 @@ export default function RootLayout() {
         <Stack.Screen name="deadstock" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         <Stack.Screen name="settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       </Stack>
-    </>
+    </CurrencyProvider>
   );
 }
 

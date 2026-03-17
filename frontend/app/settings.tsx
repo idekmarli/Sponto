@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, cardStyles, shadows, iconSize } from '../src/theme';
 import { api } from '../src/api';
+import { useCurrency, CURRENCIES } from '../src/currency';
+import { SectionHeader, Divider } from '../src/components/UI';
 
 const PLATFORM_NAMES: Record<string, string> = {
   ebay: 'eBay',
@@ -19,13 +21,12 @@ const PLATFORM_NAMES: Record<string, string> = {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { currency, setCurrency } = useCurrency();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [platformFees, setPlatformFees] = useState<Record<string, string>>({});
   const [targetROI, setTargetROI] = useState('');
   const [minProfit, setMinProfit] = useState('');
-  const [defaultPackaging, setDefaultPackaging] = useState('');
-  const [defaultShipping, setDefaultShipping] = useState('');
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -34,8 +35,6 @@ export default function SettingsScreen() {
       setPlatformFees(fees);
       setTargetROI(String(s.target_roi || 50));
       setMinProfit(String(s.min_profit || 10));
-      setDefaultPackaging(String(s.default_packaging_cost || 2));
-      setDefaultShipping(String(s.default_shipping || 5));
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -48,8 +47,6 @@ export default function SettingsScreen() {
         platform_fees: fees,
         target_roi: parseFloat(targetROI) || 50,
         min_profit: parseFloat(minProfit) || 10,
-        default_packaging_cost: parseFloat(defaultPackaging) || 2,
-        default_shipping: parseFloat(defaultShipping) || 5,
       });
       Alert.alert('Saved', 'Settings updated successfully');
     } catch (e) {
@@ -59,7 +56,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // Loading State
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -73,19 +69,13 @@ export default function SettingsScreen() {
     <ScrollView
       testID="settings-screen"
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[2] }]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
       {/* Header */}
-      <TouchableOpacity
-        testID="back-btn"
-        onPress={() => router.back()}
-        style={styles.backButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.6}
-      >
-        <Feather name="arrow-left" size={20} color={colors.textPrimary} />
+      <TouchableOpacity testID="back-btn" onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
+        <Feather name="arrow-left" size={iconSize.md} color={colors.textPrimary} />
       </TouchableOpacity>
 
       <View style={styles.header}>
@@ -93,21 +83,54 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>Business configuration</Text>
       </View>
 
+      {/* Currency Selection */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionIconWrap, { backgroundColor: colors.infoLight }]}>
+            <Feather name="dollar-sign" size={iconSize.sm} color={colors.info} />
+          </View>
+          <View>
+            <Text style={styles.sectionTitle}>Currency</Text>
+            <Text style={styles.sectionDesc}>Select your preferred currency</Text>
+          </View>
+        </View>
+        <View style={cardStyles.base}>
+          {Object.values(CURRENCIES).map((curr, i) => (
+            <TouchableOpacity
+              key={curr.code}
+              style={[styles.currencyRow, i > 0 && styles.rowBorder]}
+              onPress={() => setCurrency(curr.code)}
+              activeOpacity={0.6}
+            >
+              <View style={styles.currencyInfo}>
+                <Text style={styles.currencySymbol}>{curr.symbol}</Text>
+                <Text style={styles.currencyName}>{curr.name}</Text>
+              </View>
+              {currency.code === curr.code && (
+                <View style={styles.checkIcon}>
+                  <Feather name="check" size={iconSize.md} color={colors.success} />
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {/* Platform Fees */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <View style={styles.sectionIconWrap}>
-            <Feather name="percent" size={16} color={colors.accent} />
+          <View style={[styles.sectionIconWrap, { backgroundColor: '#F5F3EF' }]}>
+            <Feather name="percent" size={iconSize.sm} color={colors.accent} />
           </View>
           <View>
             <Text style={styles.sectionTitle}>Platform Fees</Text>
             <Text style={styles.sectionDesc}>Set fee % for each marketplace</Text>
           </View>
         </View>
-        <View style={styles.card}>
+        <View style={cardStyles.base}>
           {Object.keys(PLATFORM_NAMES).map((key, i) => (
             <View key={key}>
-              {i > 0 && <View style={styles.divider} />}
+              {i > 0 && <Divider />}
               <View style={styles.settingRow}>
                 <Text style={styles.settingLabel}>{PLATFORM_NAMES[key]}</Text>
                 <View style={styles.inputWrap}>
@@ -132,14 +155,14 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View style={[styles.sectionIconWrap, { backgroundColor: colors.successLight }]}>
-            <Feather name="target" size={16} color={colors.success} />
+            <Feather name="target" size={iconSize.sm} color={colors.success} />
           </View>
           <View>
             <Text style={styles.sectionTitle}>Business Targets</Text>
             <Text style={styles.sectionDesc}>Thresholds for sourcing decisions</Text>
           </View>
         </View>
-        <View style={styles.card}>
+        <View style={cardStyles.base}>
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Target ROI</Text>
@@ -158,14 +181,14 @@ export default function SettingsScreen() {
               <Text style={styles.inputSuffix}>%</Text>
             </View>
           </View>
-          <View style={styles.divider} />
+          <Divider />
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Minimum Profit</Text>
               <Text style={styles.settingHint}>Minimum for "Buy" verdict</Text>
             </View>
             <View style={styles.inputWrap}>
-              <Text style={styles.inputPrefix}>$</Text>
+              <Text style={styles.inputPrefix}>{currency.symbol}</Text>
               <TextInput
                 testID="min-profit"
                 style={styles.input}
@@ -173,52 +196,6 @@ export default function SettingsScreen() {
                 onChangeText={setMinProfit}
                 keyboardType="numeric"
                 placeholder="10"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Default Costs */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={[styles.sectionIconWrap, { backgroundColor: colors.warningLight }]}>
-            <Feather name="dollar-sign" size={16} color={colors.warning} />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>Default Costs</Text>
-            <Text style={styles.sectionDesc}>Pre-filled values for new items</Text>
-          </View>
-        </View>
-        <View style={styles.card}>
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Packaging</Text>
-            <View style={styles.inputWrap}>
-              <Text style={styles.inputPrefix}>$</Text>
-              <TextInput
-                testID="default-packaging"
-                style={styles.input}
-                value={defaultPackaging}
-                onChangeText={setDefaultPackaging}
-                keyboardType="numeric"
-                placeholder="2"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Shipping</Text>
-            <View style={styles.inputWrap}>
-              <Text style={styles.inputPrefix}>$</Text>
-              <TextInput
-                testID="default-shipping"
-                style={styles.input}
-                value={defaultShipping}
-                onChangeText={setDefaultShipping}
-                keyboardType="numeric"
-                placeholder="5"
                 placeholderTextColor={colors.textMuted}
               />
             </View>
@@ -243,186 +220,49 @@ export default function SettingsScreen() {
         <Text style={styles.appVersion}>Version 1.0</Text>
       </View>
 
-      <View style={{ height: 32 }} />
+      <View style={{ height: space[8] }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingHorizontal: spacing.containerPadding,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: spacing.screenPadding },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.textTertiary, marginTop: space[4] },
 
-  // Loading
-  loadingText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
-    color: colors.textTertiary,
-    marginTop: 16,
-  },
+  backBtn: { width: spacing.touchTarget, height: spacing.touchTarget, borderRadius: spacing.touchTarget / 2, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginBottom: space[4], ...shadows.xs },
+  header: { marginBottom: spacing.sectionGap },
+  title: { fontFamily: fontFamily.bold, fontSize: fontSize['3xl'], color: colors.textPrimary, letterSpacing: -0.8, marginBottom: space[1] },
+  subtitle: { fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.textSecondary },
 
-  // Header
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    ...shadows.subtle,
-  },
-  header: {
-    marginBottom: spacing.sectionGap,
-  },
-  title: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 32,
-    color: colors.textPrimary,
-    letterSpacing: -0.8,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
+  section: { marginBottom: space[6] },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
+  sectionIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.textPrimary },
+  sectionDesc: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 1 },
 
-  // Sections
-  section: {
-    marginBottom: spacing.l,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
-  },
-  sectionIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F1ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  sectionDesc: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: space[4], paddingHorizontal: space[4] },
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  settingInfo: { flex: 1, marginRight: space[4] },
+  settingLabel: { fontFamily: fontFamily.semibold, fontSize: fontSize.md, color: colors.textPrimary },
+  settingHint: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.textTertiary, marginTop: 2 },
 
-  // Card
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
-    paddingHorizontal: spacing.cardPadding,
-    ...shadows.subtle,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.divider,
-  },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceMuted, borderRadius: radius.md, paddingHorizontal: space[3], height: 40, minWidth: 80 },
+  input: { fontFamily: fontFamily.mono, fontSize: fontSize.md, color: colors.textPrimary, textAlign: 'right', minWidth: 40, padding: 0 },
+  inputPrefix: { fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.textTertiary, marginRight: space[1] },
+  inputSuffix: { fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.textTertiary, marginLeft: space[1] },
 
-  // Setting Row
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  settingInfo: {
-    flex: 1,
-    marginRight: 16,
-  },
-  settingLabel: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  settingHint: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
+  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: space[4], paddingHorizontal: space[4] },
+  currencyInfo: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  currencySymbol: { fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.textPrimary, width: 32 },
+  currencyName: { fontFamily: fontFamily.medium, fontSize: fontSize.md, color: colors.textPrimary },
+  checkIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' },
 
-  // Input
-  inputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.m,
-    paddingHorizontal: 12,
-    height: 40,
-    minWidth: 80,
-  },
-  input: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 15,
-    color: colors.textPrimary,
-    textAlign: 'right',
-    minWidth: 40,
-    padding: 0,
-  },
-  inputPrefix: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
-    color: colors.textTertiary,
-    marginRight: 2,
-  },
-  inputSuffix: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
-    color: colors.textTertiary,
-    marginLeft: 2,
-  },
+  saveButton: { backgroundColor: colors.brand, borderRadius: radius.full, height: spacing.buttonHeight, alignItems: 'center', justifyContent: 'center', marginTop: space[4], marginBottom: space[8], ...shadows.md },
+  saveButtonText: { fontFamily: fontFamily.semibold, fontSize: fontSize.lg, color: colors.textInverse },
 
-  // Save Button
-  saveButton: {
-    backgroundColor: colors.textPrimary,
-    borderRadius: borderRadius.pill,
-    height: spacing.buttonHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.m,
-    marginBottom: spacing.xl,
-    ...shadows.medium,
-  },
-  saveButtonText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-
-  // App Info
-  appInfo: {
-    alignItems: 'center',
-    paddingVertical: spacing.l,
-  },
-  appName: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 18,
-    color: colors.textTertiary,
-  },
-  appVersion: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
+  appInfo: { alignItems: 'center', paddingVertical: space[6] },
+  appName: { fontFamily: fontFamily.bold, fontSize: fontSize.lg, color: colors.textTertiary },
+  appVersion: { fontFamily: fontFamily.regular, fontSize: fontSize.sm, color: colors.textMuted, marginTop: space[1] },
 });

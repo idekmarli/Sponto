@@ -1,35 +1,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ONBOARDED_KEY = 'resellr_onboarded';
-const LAST_PLATFORM_KEY = 'resellr_last_platform';
-const LAST_CATEGORY_KEY = 'resellr_last_category';
+const KEYS = {
+  onboarded: 'resellr_onboarded',
+  lastPlatform: 'resellr_last_platform',
+  lastCategory: 'resellr_last_category',
+  currency: 'resellr_currency',
+} as const;
 
 export const store = {
   // Onboarding
   async hasOnboarded(): Promise<boolean> {
-    const val = await AsyncStorage.getItem(ONBOARDED_KEY);
+    const val = await AsyncStorage.getItem(KEYS.onboarded);
     return val === 'true';
   },
   async setOnboarded(): Promise<void> {
-    await AsyncStorage.setItem(ONBOARDED_KEY, 'true');
+    await AsyncStorage.setItem(KEYS.onboarded, 'true');
   },
   async resetOnboarding(): Promise<void> {
-    await AsyncStorage.removeItem(ONBOARDED_KEY);
+    await AsyncStorage.removeItem(KEYS.onboarded);
   },
 
-  // Last used platform (for source calculator)
+  // Last used platform
   async getLastPlatform(): Promise<string> {
-    return (await AsyncStorage.getItem(LAST_PLATFORM_KEY)) || 'eBay';
+    return (await AsyncStorage.getItem(KEYS.lastPlatform)) || 'eBay';
   },
   async setLastPlatform(platform: string): Promise<void> {
-    await AsyncStorage.setItem(LAST_PLATFORM_KEY, platform);
+    await AsyncStorage.setItem(KEYS.lastPlatform, platform);
   },
 
   // Last used category
   async getLastCategory(): Promise<string> {
-    return (await AsyncStorage.getItem(LAST_CATEGORY_KEY)) || '';
+    return (await AsyncStorage.getItem(KEYS.lastCategory)) || '';
   },
   async setLastCategory(category: string): Promise<void> {
-    await AsyncStorage.setItem(LAST_CATEGORY_KEY, category);
+    await AsyncStorage.setItem(KEYS.lastCategory, category);
   },
 };

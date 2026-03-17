@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, borderRadius, shadows } from '../theme';
+import { colors, space, radius, fontFamily, fontSize, shadows, iconSize } from '../theme';
 
 interface ToastProps {
   visible: boolean;
@@ -14,8 +14,8 @@ interface ToastProps {
 
 export function Toast({ visible, message, type = 'success', onHide, duration = 2500 }: ToastProps) {
   const insets = useSafeAreaInsets();
-  const opacity = React.useRef(new Animated.Value(0)).current;
-  const translateY = React.useRef(new Animated.Value(-20)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-20)).current;
 
   useEffect(() => {
     if (visible) {
@@ -38,43 +38,20 @@ export function Toast({ visible, message, type = 'success', onHide, duration = 2
   if (!visible) return null;
 
   const config = {
-    success: { icon: 'check-circle', bg: colors.success, iconColor: '#FFFFFF' },
-    error: { icon: 'alert-circle', bg: colors.error, iconColor: '#FFFFFF' },
-    info: { icon: 'info', bg: colors.textPrimary, iconColor: '#FFFFFF' },
+    success: { icon: 'check-circle', bg: colors.success },
+    error: { icon: 'alert-circle', bg: colors.error },
+    info: { icon: 'info', bg: colors.brand },
   }[type];
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        { top: insets.top + 8, backgroundColor: config.bg },
-        { opacity, transform: [{ translateY }] },
-      ]}
-    >
-      <Feather name={config.icon as any} size={18} color={config.iconColor} />
+    <Animated.View style={[styles.container, { top: insets.top + space[2], backgroundColor: config.bg }, { opacity, transform: [{ translateY }] }]}>
+      <Feather name={config.icon as any} size={iconSize.md} color={colors.textInverse} />
       <Text style={styles.message}>{message}</Text>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: borderRadius.l,
-    ...shadows.strong,
-    zIndex: 9999,
-  },
-  message: {
-    flex: 1,
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
+  container: { position: 'absolute', left: space[5], right: space[5], flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[4], paddingHorizontal: space[4], borderRadius: radius.lg, ...shadows.lg, zIndex: 9999 },
+  message: { flex: 1, fontFamily: fontFamily.semibold, fontSize: fontSize.md, color: colors.textInverse },
 });

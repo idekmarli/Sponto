@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { colors, space, radius, fontFamily, fontSize, shadows, iconSize } from '../theme';
+import { useCurrency } from '../currency';
 
 interface SoldModalProps {
   visible: boolean;
@@ -13,6 +14,7 @@ interface SoldModalProps {
 
 export function SoldModal({ visible, onClose, item, onConfirm }: SoldModalProps) {
   const insets = useSafeAreaInsets();
+  const { currency, formatAmount } = useCurrency();
   const [soldPrice, setSoldPrice] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -44,24 +46,21 @@ export function SoldModal({ visible, onClose, item, onConfirm }: SoldModalProps)
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          {/* Handle */}
+        <Pressable style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space[4]) }]}>
           <View style={styles.handle} />
 
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.successIcon}>
-              <Feather name="dollar-sign" size={24} color={colors.success} />
+              <Feather name="dollar-sign" size={iconSize.lg} color={colors.success} />
             </View>
             <Text style={styles.title}>Mark as Sold</Text>
             <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
           </View>
 
-          {/* Price Input */}
           <View style={styles.priceCard}>
             <Text style={styles.priceLabel}>Sold Price</Text>
             <View style={styles.priceInputRow}>
-              <Text style={styles.pricePrefix}>$</Text>
+              <Text style={styles.pricePrefix}>{currency.symbol}</Text>
               <TextInput
                 testID="sold-price-input"
                 style={styles.priceInput}
@@ -76,17 +75,15 @@ export function SoldModal({ visible, onClose, item, onConfirm }: SoldModalProps)
             </View>
           </View>
 
-          {/* Profit Preview */}
           {price > 0 && (
             <View style={[styles.profitPreview, { backgroundColor: profitPositive ? colors.successLight : colors.errorLight }]}>
               <Text style={styles.profitLabel}>Net Profit</Text>
               <Text style={[styles.profitValue, { color: profitPositive ? colors.success : colors.error }]}>
-                {profitPositive ? '+' : ''}${profit.toFixed(2)}
+                {profitPositive ? '+' : ''}{formatAmount(profit)}
               </Text>
             </View>
           )}
 
-          {/* Actions */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.6}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -99,10 +96,10 @@ export function SoldModal({ visible, onClose, item, onConfirm }: SoldModalProps)
               activeOpacity={0.7}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
                 <>
-                  <Feather name="check" size={18} color="#FFFFFF" />
+                  <Feather name="check" size={iconSize.md} color={colors.textInverse} />
                   <Text style={styles.confirmText}>Confirm Sale</Text>
                 </>
               )}
@@ -115,134 +112,25 @@ export function SoldModal({ visible, onClose, item, onConfirm }: SoldModalProps)
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    paddingTop: 8,
-    paddingHorizontal: spacing.containerPadding,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  successIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.successLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  itemTitle: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  priceCard: {
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.l,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  priceLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  priceInputRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  pricePrefix: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 28,
-    color: colors.textTertiary,
-    marginRight: 4,
-  },
-  priceInput: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 48,
-    color: colors.textPrimary,
-    padding: 0,
-    minWidth: 100,
-    textAlign: 'center',
-    letterSpacing: -1,
-  },
-  profitPreview: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderRadius: borderRadius.l,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  profitLabel: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  profitValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
-    letterSpacing: -0.3,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.pill,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  cancelText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 15,
-    color: colors.textSecondary,
-  },
-  confirmBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    backgroundColor: colors.success,
-    borderRadius: borderRadius.pill,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    ...shadows.medium,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.4,
-  },
-  confirmText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
+  overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingTop: space[2], paddingHorizontal: space[5] },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: space[5] },
+  header: { alignItems: 'center', marginBottom: space[6] },
+  successIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center', marginBottom: space[3] },
+  title: { fontFamily: fontFamily.bold, fontSize: fontSize.xl, color: colors.textPrimary, marginBottom: space[1] },
+  itemTitle: { fontFamily: fontFamily.regular, fontSize: fontSize.md, color: colors.textSecondary },
+  priceCard: { backgroundColor: colors.surfaceMuted, borderRadius: radius.lg, padding: space[5], alignItems: 'center', marginBottom: space[3] },
+  priceLabel: { fontFamily: fontFamily.medium, fontSize: fontSize.sm, color: colors.textSecondary, marginBottom: space[2] },
+  priceInputRow: { flexDirection: 'row', alignItems: 'baseline' },
+  pricePrefix: { fontFamily: fontFamily.regular, fontSize: fontSize['2xl'], color: colors.textTertiary, marginRight: space[1] },
+  priceInput: { fontFamily: fontFamily.bold, fontSize: fontSize['5xl'], color: colors.textPrimary, padding: 0, minWidth: 100, textAlign: 'center', letterSpacing: -1 },
+  profitPreview: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: radius.lg, paddingVertical: space[4], paddingHorizontal: space[4], marginBottom: space[5] },
+  profitLabel: { fontFamily: fontFamily.semibold, fontSize: fontSize.md, color: colors.textSecondary },
+  profitValue: { fontFamily: fontFamily.bold, fontSize: fontSize.xl, letterSpacing: -0.3 },
+  actions: { flexDirection: 'row', gap: space[3] },
+  cancelBtn: { flex: 1, backgroundColor: colors.surfaceMuted, borderRadius: radius.full, paddingVertical: space[4], alignItems: 'center' },
+  cancelText: { fontFamily: fontFamily.semibold, fontSize: fontSize.md, color: colors.textSecondary },
+  confirmBtn: { flex: 2, flexDirection: 'row', backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: space[4], alignItems: 'center', justifyContent: 'center', gap: space[2], ...shadows.md },
+  confirmBtnDisabled: { opacity: 0.4 },
+  confirmText: { fontFamily: fontFamily.bold, fontSize: fontSize.md, color: colors.textInverse },
 });
