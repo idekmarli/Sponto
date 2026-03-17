@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { EmptyState, StatCard, Divider } from '../../src/components/UI';
+import { exportToCSV, INVENTORY_COLUMNS, SALES_COLUMNS } from '../../src/utils/csvExport';
+import { Toast } from '../../src/components/Toast';
 
 interface InsightsData {
   platform_revenue: Record<string, number>;
@@ -70,6 +72,8 @@ export default function InsightsScreen() {
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -85,6 +89,56 @@ export default function InsightsScreen() {
   useEffect(() => {
     fetchInsights();
   }, [fetchInsights]);
+
+  // Export functions
+  const handleExportInventory = async () => {
+    setExporting(true);
+    try {
+      const items = await api.getItems();
+      const success = await exportToCSV({
+        filename: 'resellr_inventory',
+        data: items,
+        columns: INVENTORY_COLUMNS,
+      });
+      if (success) {
+        setToast({ visible: true, message: 'Inventory exported successfully', type: 'success' });
+      } else {
+        setToast({ visible: true, message: 'Export failed', type: 'error' });
+      }
+    } catch (e) {
+      console.error('Export error:', e);
+      setToast({ visible: true, message: 'Export failed', type: 'error' });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportSales = async () => {
+    setExporting(true);
+    try {
+      const items = await api.getItems({ status: 'sold' });
+      // Add ROI calculation to each item
+      const salesWithROI = items.map((item: any) => ({
+        ...item,
+        roi: item.purchase_price > 0 ? ((item.net_profit / item.purchase_price) * 100) : 0,
+      }));
+      const success = await exportToCSV({
+        filename: 'resellr_sales',
+        data: salesWithROI,
+        columns: SALES_COLUMNS,
+      });
+      if (success) {
+        setToast({ visible: true, message: 'Sales data exported successfully', type: 'success' });
+      } else {
+        setToast({ visible: true, message: 'Export failed', type: 'error' });
+      }
+    } catch (e) {
+      console.error('Export error:', e);
+      setToast({ visible: true, message: 'Export failed', type: 'error' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -134,8 +188,58 @@ export default function InsightsScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Insights</Text>
-        <Text style={styles.subtitle}>Business performance</Text>
+        <View>
+          <Text style={styles.title}>Insights</Text>
+          <Text style={styles.subtitle}>Business performance</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.exportBtn} 
+            onPress={handleExportInventory}
+            disabled={exporting}
+            activeOpacity={0.7}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+            ) : (
+              <Feather name="download" size={18} color={colors.textSecondary} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Export Options */}
+      <View style={styles.exportSection}>
+        <TouchableOpacity 
+          style={styles.exportCard} 
+          onPress={handleExportInventory}
+          disabled={exporting}
+          activeOpacity={0.7}
+        >
+          <View style={styles.exportCardIcon}>
+            <Feather name="package" size={18} color={colors.brand} />
+          </View>
+          <View style={styles.exportCardContent}>
+            <Text style={styles.exportCardTitle}>Export Inventory</Text>
+            <Text style={styles.exportCardDesc}>All items with full details</Text>
+          </View>
+          <Feather name="download" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.exportCard} 
+          onPress={handleExportSales}
+          disabled={exporting}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.exportCardIcon, { backgroundColor: colors.successLight }]}>
+            <Feather name="dollar-sign" size={18} color={colors.success} />
+          </View>
+          <View style={styles.exportCardContent}>
+            <Text style={styles.exportCardTitle}>Export Sales</Text>
+            <Text style={styles.exportCardDesc}>Sold items with profit data</Text>
+          </View>
+          <Feather name="download" size={16} color={colors.textTertiary} />
+        </TouchableOpacity>
       </View>
 
       {/* Key Metrics - 2x2 Grid */}
@@ -261,6 +365,14 @@ export default function InsightsScreen() {
       )}
 
       <View style={{ height: space[8] }} />
+      
+      {/* Toast */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onDismiss={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
     </ScrollView>
   );
 }
@@ -337,7 +449,23 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    marginBottom: space[6],
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: space[5],
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: space[2],
+  },
+  exportBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.xs,
   },
   title: {
     fontFamily: fontFamily.bold,
@@ -350,6 +478,45 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     fontSize: fontSize.md,
     color: colors.textSecondary,
+  },
+
+  // Export Section
+  exportSection: {
+    flexDirection: 'row',
+    gap: space[3],
+    marginBottom: space[6],
+  },
+  exportCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: space[3],
+    ...shadows.xs,
+  },
+  exportCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportCardContent: {
+    flex: 1,
+  },
+  exportCardTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+  },
+  exportCardDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    marginTop: 1,
   },
 
   // Metrics Grid
