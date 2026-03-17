@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing } from '../../src/theme';
+import { colors, borderRadius, shadows } from '../../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabIconName = 'home' | 'archive' | 'target' | 'layers' | 'bar-chart-2';
@@ -14,11 +14,14 @@ const TAB_CONFIG: { name: string; title: string; icon: TabIconName }[] = [
   { name: 'insights', title: 'Insights', icon: 'bar-chart-2' },
 ];
 
-function CustomTabBar({ state, descriptors, navigation }: any) {
+function CustomTabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View testID="custom-tab-bar" style={[styles.tabBarOuter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View 
+      testID="custom-tab-bar" 
+      style={[styles.tabBarContainer, { paddingBottom: Math.max(insets.bottom, 8) }]}
+    >
       <View style={styles.tabBarInner}>
         {state.routes.map((route: any, index: number) => {
           const config = TAB_CONFIG[index];
@@ -26,7 +29,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           const isFocused = state.index === index;
 
           const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name);
             }
@@ -38,13 +45,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               testID={`tab-${config.name}`}
               onPress={onPress}
               style={styles.tabItem}
-              activeOpacity={0.6}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
-              <View style={[styles.tabIconWrap, isFocused && styles.tabIconActive]}>
+              <View style={[styles.tabIconContainer, isFocused && styles.tabIconContainerActive]}>
                 <Feather
                   name={config.icon}
-                  size={19}
+                  size={20}
                   color={isFocused ? colors.textPrimary : colors.textTertiary}
                 />
               </View>
@@ -75,11 +82,11 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBarOuter: {
+  tabBarContainer: {
     backgroundColor: colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    paddingTop: 6,
+    paddingTop: 8,
   },
   tabBarInner: {
     flexDirection: 'row',
@@ -89,24 +96,24 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
-    gap: 3,
+    paddingVertical: 4,
+    gap: 4,
   },
-  tabIconWrap: {
-    width: 40,
+  tabIconContainer: {
+    width: 48,
     height: 32,
-    borderRadius: 16,
+    borderRadius: borderRadius.m,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabIconActive: {
+  tabIconContainerActive: {
     backgroundColor: colors.surfaceHighlight,
   },
   tabLabel: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 10,
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 11,
     color: colors.textTertiary,
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   tabLabelActive: {
     fontFamily: 'Mulish_700Bold',

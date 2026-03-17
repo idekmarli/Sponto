@@ -18,6 +18,49 @@ interface InsightsData {
   total_active: number;
 }
 
+// Bar Chart Component
+function BarChart({ data, valueKey, colorFn }: { 
+  data: Array<{ month: string; [key: string]: any }>; 
+  valueKey: string;
+  colorFn?: (value: number, isLast: boolean) => string;
+}) {
+  if (data.length === 0) return null;
+  const maxVal = Math.max(...data.map(d => Math.abs(d[valueKey])), 1);
+
+  return (
+    <View style={chartStyles.container}>
+      {data.map((d, i) => {
+        const value = d[valueKey];
+        const h = Math.max((Math.abs(value) / maxVal) * 64, 4);
+        const isLast = i === data.length - 1;
+        const barColor = colorFn ? colorFn(value, isLast) : (isLast ? colors.accent : colors.surfaceHighlight);
+        
+        return (
+          <View key={i} style={chartStyles.col}>
+            <Text style={[chartStyles.value, isLast && { color: colors.textPrimary }]}>
+              ${Math.abs(value)}
+            </Text>
+            <View style={chartStyles.barArea}>
+              <View style={[chartStyles.bar, { height: h, backgroundColor: barColor }]} />
+            </View>
+            <Text style={[chartStyles.label, isLast && chartStyles.labelActive]}>{d.month}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// Horizontal Progress Bar
+function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const width = Math.max((value / max) * 100, 4);
+  return (
+    <View style={progressStyles.container}>
+      <View style={[progressStyles.fill, { width: `${width}%`, backgroundColor: color }]} />
+    </View>
+  );
+}
+
 export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const [data, setData] = useState<InsightsData | null>(null);
@@ -25,22 +68,39 @@ export default function InsightsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchInsights = useCallback(async () => {
-    try { setData(await api.getInsights()); }
-    catch (e) { console.error(e); }
-    finally { setLoading(false); setRefreshing(false); }
+    try {
+      setData(await api.getInsights());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  useEffect(() => { fetchInsights(); }, [fetchInsights]);
+  useEffect(() => {
+    fetchInsights();
+  }, [fetchInsights]);
 
+  // Loading State
   if (loading) {
-    return <View style={[s.container, s.center, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={styles.loadingText}>Loading insights...</Text>
+      </View>
+    );
   }
 
+  // Empty State
   if (!data) {
     return (
-      <View style={[s.container, s.center, { paddingTop: insets.top }]}>
-        <Feather name="bar-chart-2" size={32} color={colors.textTertiary} />
-        <Text style={s.emptyText}>No data yet</Text>
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <View style={styles.emptyIcon}>
+          <Feather name="bar-chart-2" size={28} color={colors.textTertiary} />
+        </View>
+        <Text style={styles.emptyTitle}>No data yet</Text>
+        <Text style={styles.emptyText}>Start selling to see your business insights</Text>
       </View>
     );
   }
@@ -48,110 +108,103 @@ export default function InsightsScreen() {
   const platformEntries = Object.entries(data.platform_revenue).sort((a, b) => b[1] - a[1]);
   const categoryEntries = Object.entries(data.category_performance).sort((a, b) => b[1].profit - a[1].profit);
   const maxPlatformRev = Math.max(...platformEntries.map(x => x[1]), 1);
+  const maxCategoryProfit = Math.max(...categoryEntries.map(x => x[1].profit), 1);
 
   return (
     <ScrollView
       testID="insights-screen"
-      style={s.container}
-      contentContainerStyle={[s.content, { paddingTop: insets.top + 20 }]}
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchInsights(); }} tintColor={colors.accent} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); fetchInsights(); }}
+          tintColor={colors.accent}
+        />
+      }
     >
-      <Text style={s.title}>Insights</Text>
-      <Text style={s.subtitle}>Business performance</Text>
-
-      {/* Key Stats */}
-      <View style={s.statsRow}>
-        <View testID="stat-roi" style={s.statCard}>
-          <Text style={s.statLabel}>Avg ROI</Text>
-          <Text style={s.statValue}>{data.avg_roi}%</Text>
-        </View>
-        <View testID="stat-days" style={s.statCard}>
-          <Text style={s.statLabel}>Avg Days</Text>
-          <Text style={s.statValue}>{data.avg_days_to_sell}</Text>
-        </View>
-      </View>
-      <View style={s.statsRow}>
-        <View testID="stat-deadstock" style={[s.statCard, data.dead_stock_percentage > 20 && { backgroundColor: '#FAF4F1' }]}>
-          <Text style={s.statLabel}>Dead Stock</Text>
-          <Text style={[s.statValue, data.dead_stock_percentage > 20 && { color: colors.warning }]}>{data.dead_stock_percentage}%</Text>
-        </View>
-        <View testID="stat-stale-capital" style={s.statCard}>
-          <Text style={s.statLabel}>Stale Capital</Text>
-          <Text style={s.statValue}>${data.capital_in_stale}</Text>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Insights</Text>
+        <Text style={styles.subtitle}>Business performance</Text>
       </View>
 
-      {/* Monthly Revenue Chart */}
+      {/* Key Metrics */}
+      <View style={styles.metricsGrid}>
+        <View testID="stat-roi" style={styles.metricCard}>
+          <Text style={styles.metricValue}>{data.avg_roi}%</Text>
+          <Text style={styles.metricLabel}>Avg ROI</Text>
+        </View>
+        <View testID="stat-days" style={styles.metricCard}>
+          <Text style={styles.metricValue}>{data.avg_days_to_sell}</Text>
+          <Text style={styles.metricLabel}>Avg Days to Sell</Text>
+        </View>
+        <View testID="stat-deadstock" style={[styles.metricCard, data.dead_stock_percentage > 20 && styles.metricCardWarning]}>
+          <Text style={[styles.metricValue, data.dead_stock_percentage > 20 && { color: colors.warning }]}>
+            {data.dead_stock_percentage}%
+          </Text>
+          <Text style={styles.metricLabel}>Dead Stock</Text>
+        </View>
+        <View testID="stat-stale-capital" style={styles.metricCard}>
+          <Text style={styles.metricValue}>${data.capital_in_stale}</Text>
+          <Text style={styles.metricLabel}>Stale Capital</Text>
+        </View>
+      </View>
+
+      {/* Monthly Revenue */}
       {data.monthly_trends.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Monthly Revenue</Text>
-          <View style={s.card}>
-            <View style={s.chartArea}>
-              {data.monthly_trends.map((t, i) => {
-                const maxRev = Math.max(...data.monthly_trends.map(x => x.revenue), 1);
-                const h = Math.max((t.revenue / maxRev) * 72, 3);
-                const isLast = i === data.monthly_trends.length - 1;
-                return (
-                  <View key={i} style={s.chartCol}>
-                    <Text style={[s.chartValue, isLast && { color: colors.textPrimary }]}>${t.revenue}</Text>
-                    <View style={s.chartBarArea}>
-                      <View style={[s.chartBar, { height: h, backgroundColor: isLast ? colors.accent : colors.surfaceHighlight }]} />
-                    </View>
-                    <Text style={[s.chartLabel, isLast && { color: colors.textPrimary }]}>{t.month}</Text>
-                  </View>
-                );
-              })}
-            </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monthly Revenue</Text>
+          <View style={styles.chartCard}>
+            <BarChart 
+              data={data.monthly_trends} 
+              valueKey="revenue"
+              colorFn={(_, isLast) => isLast ? colors.accent : colors.surfaceHighlight}
+            />
           </View>
         </View>
       )}
 
-      {/* Monthly Profit Chart */}
+      {/* Monthly Profit */}
       {data.monthly_trends.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Monthly Profit</Text>
-          <View style={s.card}>
-            <View style={s.chartArea}>
-              {data.monthly_trends.map((t, i) => {
-                const maxProf = Math.max(...data.monthly_trends.map(x => Math.abs(x.profit)), 1);
-                const h = Math.max((Math.abs(t.profit) / maxProf) * 72, 3);
-                const isLast = i === data.monthly_trends.length - 1;
-                return (
-                  <View key={i} style={s.chartCol}>
-                    <Text style={[s.chartValue, { color: t.profit >= 0 ? colors.success : colors.warning }]}>${t.profit}</Text>
-                    <View style={s.chartBarArea}>
-                      <View style={[s.chartBar, { height: h, backgroundColor: isLast ? (t.profit >= 0 ? colors.success : colors.warning) : colors.surfaceHighlight }]} />
-                    </View>
-                    <Text style={[s.chartLabel, isLast && { color: colors.textPrimary }]}>{t.month}</Text>
-                  </View>
-                );
-              })}
-            </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Monthly Profit</Text>
+          <View style={styles.chartCard}>
+            <BarChart 
+              data={data.monthly_trends} 
+              valueKey="profit"
+              colorFn={(value, isLast) => {
+                if (isLast) return value >= 0 ? colors.success : colors.warning;
+                return colors.surfaceHighlight;
+              }}
+            />
           </View>
         </View>
       )}
 
-      {/* Platform Revenue */}
+      {/* Platform Performance */}
       {platformEntries.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>By Platform</Text>
-          <View style={s.card}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>By Platform</Text>
+          <View style={styles.listCard}>
             {platformEntries.map(([platform, revenue], i) => {
               const profit = data.platform_profit[platform] || 0;
-              const width = Math.max((revenue / maxPlatformRev) * 100, 8);
               return (
                 <View key={platform}>
-                  <View style={s.platformRow}>
-                    <View style={s.platformInfo}>
-                      <Text style={s.platformName}>{platform.charAt(0).toUpperCase() + platform.slice(1)}</Text>
-                      <Text style={s.platformDetail}>${revenue} rev · ${profit} profit</Text>
+                  {i > 0 && <View style={styles.listDivider} />}
+                  <View style={styles.listItem}>
+                    <View style={styles.listItemHeader}>
+                      <Text style={styles.listItemTitle}>
+                        {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                      </Text>
+                      <Text style={styles.listItemValue}>${revenue}</Text>
                     </View>
+                    <View style={styles.listItemMeta}>
+                      <Text style={styles.listItemSubtext}>${profit} profit</Text>
+                    </View>
+                    <ProgressBar value={revenue} max={maxPlatformRev} color={colors.accent} />
                   </View>
-                  <View style={s.barBg}>
-                    <View style={[s.barFill, { width: `${width}%` }]} />
-                  </View>
-                  {i < platformEntries.length - 1 && <View style={s.divider} />}
                 </View>
               );
             })}
@@ -159,21 +212,24 @@ export default function InsightsScreen() {
         </View>
       )}
 
-      {/* Category */}
+      {/* Category Performance */}
       {categoryEntries.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>By Category</Text>
-          <View style={s.card}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>By Category</Text>
+          <View style={styles.listCard}>
             {categoryEntries.map(([category, perf], i) => (
               <View key={category}>
-                <View style={s.catRow}>
-                  <View>
-                    <Text style={s.catName}>{category}</Text>
-                    <Text style={s.catSold}>{perf.count} sold</Text>
+                {i > 0 && <View style={styles.listDivider} />}
+                <View style={styles.listItem}>
+                  <View style={styles.listItemHeader}>
+                    <View>
+                      <Text style={styles.listItemTitle}>{category}</Text>
+                      <Text style={styles.listItemSubtext}>{perf.count} sold</Text>
+                    </View>
+                    <Text style={[styles.listItemProfit, { color: colors.success }]}>${perf.profit}</Text>
                   </View>
-                  <Text style={s.catProfit}>${perf.profit}</Text>
+                  <ProgressBar value={perf.profit} max={maxCategoryProfit} color={colors.success} />
                 </View>
-                {i < categoryEntries.length - 1 && <View style={s.divider} />}
               </View>
             ))}
           </View>
@@ -185,41 +241,213 @@ export default function InsightsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { paddingHorizontal: spacing.containerPadding },
-  title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 30, color: colors.textPrimary, letterSpacing: -0.6 },
-  subtitle: { fontFamily: 'Mulish_400Regular', fontSize: 13, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.sectionGap },
+const chartStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+  },
+  col: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  value: {
+    fontFamily: 'SpaceMono_400Regular',
+    fontSize: 10,
+    color: colors.textTertiary,
+  },
+  barArea: {
+    justifyContent: 'flex-end',
+    height: 68,
+  },
+  bar: {
+    width: 28,
+    borderRadius: 6,
+  },
+  label: {
+    fontFamily: 'SpaceMono_400Regular',
+    fontSize: 10,
+    color: colors.textTertiary,
+    letterSpacing: 0.3,
+  },
+  labelActive: {
+    color: colors.textPrimary,
+    fontFamily: 'SpaceMono_700Bold',
+  },
+});
 
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.m, paddingVertical: 18, paddingHorizontal: 16, ...shadows.subtle },
-  statLabel: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: colors.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
-  statValue: { fontFamily: 'Mulish_700Bold', fontSize: 26, color: colors.textPrimary, letterSpacing: -0.5 },
+const progressStyles = StyleSheet.create({
+  container: {
+    height: 4,
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: 2,
+    marginTop: 10,
+  },
+  fill: {
+    height: 4,
+    borderRadius: 2,
+  },
+});
 
-  section: { marginTop: spacing.l, marginBottom: 4 },
-  sectionTitle: { fontFamily: 'Mulish_700Bold', fontSize: 16, color: colors.textPrimary, letterSpacing: -0.2, marginBottom: 12 },
-  card: { backgroundColor: colors.surface, borderRadius: borderRadius.l, paddingHorizontal: 18, paddingVertical: 16, ...shadows.subtle },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingHorizontal: spacing.containerPadding,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-  chartArea: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4 },
-  chartCol: { flex: 1, alignItems: 'center', gap: 6 },
-  chartValue: { fontFamily: 'SpaceMono_400Regular', fontSize: 9, color: colors.textTertiary },
-  chartBarArea: { justifyContent: 'flex-end', height: 76 },
-  chartBar: { width: 24, borderRadius: 6, minHeight: 3 },
-  chartLabel: { fontFamily: 'SpaceMono_400Regular', fontSize: 10, color: colors.textTertiary },
+  // Loading
+  loadingText: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 14,
+    color: colors.textTertiary,
+    marginTop: 16,
+  },
 
-  platformRow: { flexDirection: 'row', alignItems: 'center', paddingTop: 12, paddingBottom: 6 },
-  platformInfo: { flex: 1 },
-  platformName: { fontFamily: 'Mulish_700Bold', fontSize: 14, color: colors.textPrimary },
-  platformDetail: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  barBg: { height: 4, backgroundColor: colors.surfaceHighlight, borderRadius: 2, marginBottom: 8 },
-  barFill: { height: 4, borderRadius: 2, backgroundColor: colors.accent },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
+  // Empty State
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.surfaceHighlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 20,
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 
-  catRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  catName: { fontFamily: 'Mulish_600SemiBold', fontSize: 14, color: colors.textPrimary },
-  catSold: { fontFamily: 'Mulish_400Regular', fontSize: 12, color: colors.textTertiary, marginTop: 2 },
-  catProfit: { fontFamily: 'Mulish_700Bold', fontSize: 17, color: colors.success, letterSpacing: -0.3 },
+  // Header
+  header: {
+    marginBottom: spacing.l,
+  },
+  title: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 32,
+    color: colors.textPrimary,
+    letterSpacing: -0.8,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
 
-  emptyText: { fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textSecondary, marginTop: 12 },
+  // Metrics Grid
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sectionGap,
+  },
+  metricCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.l,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    ...shadows.subtle,
+  },
+  metricCardWarning: {
+    backgroundColor: colors.warningLight,
+  },
+  metricValue: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 28,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+
+  // Sections
+  section: {
+    marginBottom: spacing.sectionGap,
+  },
+  sectionTitle: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 17,
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+    marginBottom: 14,
+  },
+
+  // Chart Card
+  chartCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.l,
+    padding: spacing.cardPadding,
+    ...shadows.subtle,
+  },
+
+  // List Card
+  listCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.l,
+    paddingHorizontal: spacing.cardPadding,
+    ...shadows.subtle,
+  },
+  listDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.divider,
+  },
+  listItem: {
+    paddingVertical: 16,
+  },
+  listItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  listItemTitle: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  listItemValue: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+  listItemMeta: {
+    marginTop: 2,
+  },
+  listItemSubtext: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  listItemProfit: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
 });

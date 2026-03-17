@@ -6,7 +6,12 @@ import { Feather } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../src/theme';
 import { api } from '../src/api';
 
-const STEPS = ['Info', 'Sourcing', 'Listing'];
+const STEPS = [
+  { key: 'info', label: 'Info', icon: 'info' },
+  { key: 'sourcing', label: 'Sourcing', icon: 'shopping-bag' },
+  { key: 'listing', label: 'Listing', icon: 'tag' },
+];
+
 const CATEGORIES = ['Bags', 'Outerwear', 'Knitwear', 'Footwear', 'Accessories', 'Dresses', 'Tops', 'Trousers'];
 const CONDITIONS = ['New with Tags', 'Excellent', 'Very Good', 'Good', 'Fair'];
 const PLATFORMS = ['ebay', 'depop', 'vinted', 'vestiaire', 'poshmark', 'etsy'];
@@ -16,6 +21,8 @@ export default function AddItemScreen() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  // Form State
   const [title, setTitle] = useState('');
   const [brand, setBrand] = useState('');
   const [category, setCategory] = useState('');
@@ -30,82 +37,160 @@ export default function AddItemScreen() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
 
-  const togglePlatform = (p: string) => setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  const togglePlatform = (p: string) => {
+    setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  };
 
   const saveItem = async (draft = false) => {
-    if (!title.trim()) { Alert.alert('Required', 'Please enter a title'); return; }
+    if (!title.trim()) {
+      Alert.alert('Required', 'Please enter a title');
+      return;
+    }
     setSaving(true);
     try {
       await api.createItem({
-        title: title.trim(), brand: brand.trim(), category, size: size.trim(), condition,
-        source: source.trim(), purchase_price: parseFloat(purchasePrice) || 0,
-        shipping_to_acquire: parseFloat(shippingCost) || 0, prep_cost: parseFloat(prepCost) || 0,
-        date_acquired: dateAcquired, target_list_price: parseFloat(targetPrice) || 0,
-        platforms: selectedPlatforms, notes: notes.trim(), status: 'sourced', is_draft: draft, photos: [],
+        title: title.trim(),
+        brand: brand.trim(),
+        category,
+        size: size.trim(),
+        condition,
+        source: source.trim(),
+        purchase_price: parseFloat(purchasePrice) || 0,
+        shipping_to_acquire: parseFloat(shippingCost) || 0,
+        prep_cost: parseFloat(prepCost) || 0,
+        date_acquired: dateAcquired,
+        target_list_price: parseFloat(targetPrice) || 0,
+        platforms: selectedPlatforms,
+        notes: notes.trim(),
+        status: 'sourced',
+        is_draft: draft,
+        photos: [],
       });
       router.back();
-    } catch (e) { Alert.alert('Error', 'Failed to save item'); }
-    finally { setSaving(false); }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save item');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalCost = (parseFloat(purchasePrice) || 0) + (parseFloat(shippingCost) || 0) + (parseFloat(prepCost) || 0);
+  const potentialProfit = (parseFloat(targetPrice) || 0) - totalCost;
 
   return (
-    <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View testID="add-item-screen" style={[s.container, { paddingTop: insets.top + 8 }]}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View testID="add-item-screen" style={[styles.container, { paddingTop: insets.top + 8 }]}>
         {/* Header */}
-        <View style={s.header}>
-          <TouchableOpacity testID="close-btn" onPress={() => router.back()} style={s.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            testID="close-btn"
+            onPress={() => router.back()}
+            style={styles.closeBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.6}
+          >
             <Feather name="x" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>New Item</Text>
-          <TouchableOpacity testID="save-draft-btn" onPress={() => saveItem(true)} disabled={saving}><Text style={s.draftText}>Draft</Text></TouchableOpacity>
+          <Text style={styles.headerTitle}>New Item</Text>
+          <TouchableOpacity
+            testID="save-draft-btn"
+            onPress={() => saveItem(true)}
+            disabled={saving}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.draftText}>Draft</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Steps */}
-        <View style={s.steps}>
-          {STEPS.map((label, i) => (
-            <TouchableOpacity key={label} style={s.stepItem} onPress={() => setStep(i)} activeOpacity={0.7}>
-              <View style={[s.stepBar, i <= step && s.stepBarActive]} />
-              <Text style={[s.stepLabel, i === step && s.stepLabelActive]}>{label}</Text>
+        {/* Progress Steps */}
+        <View style={styles.stepsContainer}>
+          {STEPS.map((s, i) => (
+            <TouchableOpacity
+              key={s.key}
+              style={styles.stepItem}
+              onPress={() => setStep(i)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.stepBar, i <= step && styles.stepBarActive]} />
+              <View style={styles.stepLabelRow}>
+                <Feather name={s.icon as any} size={12} color={i === step ? colors.textPrimary : colors.textTertiary} />
+                <Text style={[styles.stepLabel, i === step && styles.stepLabelActive]}>{s.label}</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {/* Step 1: Info */}
           {step === 0 && (
-            <View style={s.stepContent}>
-              <Text style={s.stepTitle}>Item Information</Text>
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Title</Text>
-                <TextInput testID="input-title" style={s.textInput} value={title} onChangeText={setTitle} placeholder="e.g. Acne Studios Musubi Bag" placeholderTextColor={colors.textTertiary} />
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Item Information</Text>
+              <Text style={styles.stepDesc}>Basic details about your item</Text>
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Title</Text>
+                <TextInput
+                  testID="input-title"
+                  style={styles.textInput}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Acne Studios Musubi Bag"
+                  placeholderTextColor={colors.textMuted}
+                />
               </View>
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Brand</Text>
-                <TextInput testID="input-brand" style={s.textInput} value={brand} onChangeText={setBrand} placeholder="e.g. Acne Studios" placeholderTextColor={colors.textTertiary} />
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Brand</Text>
+                <TextInput
+                  testID="input-brand"
+                  style={styles.textInput}
+                  value={brand}
+                  onChangeText={setBrand}
+                  placeholder="e.g. Acne Studios"
+                  placeholderTextColor={colors.textMuted}
+                />
               </View>
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Category</Text>
-                <View style={s.chipRow}>
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Category</Text>
+                <View style={styles.chipRow}>
                   {CATEGORIES.map(c => (
-                    <TouchableOpacity key={c} style={[s.chip, category === c && s.chipActive]} onPress={() => setCategory(c)} activeOpacity={0.6}>
-                      <Text style={[s.chipText, category === c && s.chipTextActive]}>{c}</Text>
+                    <TouchableOpacity
+                      key={c}
+                      style={[styles.chip, category === c && styles.chipActive]}
+                      onPress={() => setCategory(c)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[styles.chipText, category === c && styles.chipTextActive]}>{c}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
-              <View style={s.row}>
-                <View style={s.halfField}>
-                  <Text style={s.fieldLabel}>Size</Text>
-                  <TextInput testID="input-size" style={s.textInput} value={size} onChangeText={setSize} placeholder="M, 38, OS" placeholderTextColor={colors.textTertiary} />
+
+              <View style={styles.row}>
+                <View style={styles.halfField}>
+                  <Text style={styles.fieldLabel}>Size</Text>
+                  <TextInput
+                    testID="input-size"
+                    style={styles.textInput}
+                    value={size}
+                    onChangeText={setSize}
+                    placeholder="M, 38, OS"
+                    placeholderTextColor={colors.textMuted}
+                  />
                 </View>
-                <View style={s.halfField}>
-                  <Text style={s.fieldLabel}>Condition</Text>
+                <View style={styles.halfField}>
+                  <Text style={styles.fieldLabel}>Condition</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={s.chipRow}>
+                    <View style={styles.chipRow}>
                       {CONDITIONS.map(c => (
-                        <TouchableOpacity key={c} style={[s.chip, condition === c && s.chipActive]} onPress={() => setCondition(c)} activeOpacity={0.6}>
-                          <Text style={[s.chipText, condition === c && s.chipTextActive]}>{c}</Text>
+                        <TouchableOpacity
+                          key={c}
+                          style={[styles.chip, condition === c && styles.chipActive]}
+                          onPress={() => setCondition(c)}
+                          activeOpacity={0.6}
+                        >
+                          <Text style={[styles.chipText, condition === c && styles.chipTextActive]}>{c}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -115,84 +200,201 @@ export default function AddItemScreen() {
             </View>
           )}
 
+          {/* Step 2: Sourcing */}
           {step === 1 && (
-            <View style={s.stepContent}>
-              <Text style={s.stepTitle}>Sourcing Details</Text>
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Source</Text>
-                <TextInput testID="input-source" style={s.textInput} value={source} onChangeText={setSource} placeholder="Thrift Store, Estate Sale..." placeholderTextColor={colors.textTertiary} />
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Sourcing Details</Text>
+              <Text style={styles.stepDesc}>Where and how much you paid</Text>
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Source</Text>
+                <TextInput
+                  testID="input-source"
+                  style={styles.textInput}
+                  value={source}
+                  onChangeText={setSource}
+                  placeholder="Thrift Store, Estate Sale..."
+                  placeholderTextColor={colors.textMuted}
+                />
               </View>
-              <View style={s.row}>
-                <View style={s.halfField}><Text style={s.fieldLabel}>Purchase Price</Text>
-                  <View style={s.priceWrap}><Text style={s.prefix}>$</Text><TextInput testID="input-purchase" style={s.priceInput} value={purchasePrice} onChangeText={setPurchasePrice} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textTertiary} /></View>
+
+              <View style={styles.costCard}>
+                <View style={styles.costRow}>
+                  <View style={styles.costCol}>
+                    <Text style={styles.costLabel}>Purchase</Text>
+                    <View style={styles.costInputWrap}>
+                      <Text style={styles.costPrefix}>$</Text>
+                      <TextInput
+                        testID="input-purchase"
+                        style={styles.costInput}
+                        value={purchasePrice}
+                        onChangeText={setPurchasePrice}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.costDivider} />
+                  <View style={styles.costCol}>
+                    <Text style={styles.costLabel}>Shipping</Text>
+                    <View style={styles.costInputWrap}>
+                      <Text style={styles.costPrefix}>$</Text>
+                      <TextInput
+                        testID="input-ship-cost"
+                        style={styles.costInput}
+                        value={shippingCost}
+                        onChangeText={setShippingCost}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.costDivider} />
+                  <View style={styles.costCol}>
+                    <Text style={styles.costLabel}>Prep</Text>
+                    <View style={styles.costInputWrap}>
+                      <Text style={styles.costPrefix}>$</Text>
+                      <TextInput
+                        testID="input-prep-cost"
+                        style={styles.costInput}
+                        value={prepCost}
+                        onChangeText={setPrepCost}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  </View>
                 </View>
-                <View style={s.halfField}><Text style={s.fieldLabel}>Shipping</Text>
-                  <View style={s.priceWrap}><Text style={s.prefix}>$</Text><TextInput testID="input-ship-cost" style={s.priceInput} value={shippingCost} onChangeText={setShippingCost} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textTertiary} /></View>
+                <View style={styles.costTotalRow}>
+                  <Text style={styles.costTotalLabel}>Total Cost</Text>
+                  <Text style={styles.costTotalValue}>${totalCost.toFixed(2)}</Text>
                 </View>
               </View>
-              <View style={s.field}><Text style={s.fieldLabel}>Prep / Repair Cost</Text>
-                <View style={s.priceWrap}><Text style={s.prefix}>$</Text><TextInput testID="input-prep-cost" style={s.priceInput} value={prepCost} onChangeText={setPrepCost} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textTertiary} /></View>
-              </View>
-              <View style={s.field}><Text style={s.fieldLabel}>Notes</Text>
-                <TextInput testID="input-notes" style={[s.textInput, { height: 80, textAlignVertical: 'top', paddingTop: 14 }]} value={notes} onChangeText={setNotes} placeholder="Any notes..." placeholderTextColor={colors.textTertiary} multiline />
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Notes</Text>
+                <TextInput
+                  testID="input-notes"
+                  style={[styles.textInput, styles.textArea]}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Any notes about this item..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                />
               </View>
             </View>
           )}
 
+          {/* Step 3: Listing */}
           {step === 2 && (
-            <View style={s.stepContent}>
-              <Text style={s.stepTitle}>Listing Setup</Text>
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Target List Price</Text>
-                <View style={[s.priceWrap, { height: 60 }]}>
-                  <Text style={[s.prefix, { fontSize: 22 }]}>$</Text>
-                  <TextInput testID="input-target-price" style={[s.priceInput, { fontSize: 28 }]} value={targetPrice} onChangeText={setTargetPrice} keyboardType="numeric" placeholder="0" placeholderTextColor={colors.textTertiary} />
+            <View style={styles.stepContent}>
+              <Text style={styles.stepTitle}>Listing Setup</Text>
+              <Text style={styles.stepDesc}>Pricing and platform selection</Text>
+
+              <View style={styles.targetPriceCard}>
+                <Text style={styles.targetPriceLabel}>Target List Price</Text>
+                <View style={styles.targetPriceInputRow}>
+                  <Text style={styles.targetPricePrefix}>$</Text>
+                  <TextInput
+                    testID="input-target-price"
+                    style={styles.targetPriceInput}
+                    value={targetPrice}
+                    onChangeText={setTargetPrice}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                  />
                 </View>
+                {targetPrice && (
+                  <View style={styles.profitPreview}>
+                    <Text style={styles.profitPreviewLabel}>Est. Profit</Text>
+                    <Text style={[styles.profitPreviewValue, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
+                      ${potentialProfit.toFixed(2)}
+                    </Text>
+                  </View>
+                )}
               </View>
-              <View style={s.field}>
-                <Text style={s.fieldLabel}>Platforms</Text>
-                <View style={s.chipRow}>
+
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Platforms</Text>
+                <View style={styles.chipRow}>
                   {PLATFORMS.map(p => (
-                    <TouchableOpacity key={p} style={[s.chip, selectedPlatforms.includes(p) && s.chipActive]} onPress={() => togglePlatform(p)} activeOpacity={0.6}>
-                      <Text style={[s.chipText, selectedPlatforms.includes(p) && s.chipTextActive]}>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
+                    <TouchableOpacity
+                      key={p}
+                      style={[styles.chip, selectedPlatforms.includes(p) && styles.chipActive]}
+                      onPress={() => togglePlatform(p)}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={[styles.chipText, selectedPlatforms.includes(p) && styles.chipTextActive]}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
-              <View style={s.summary}>
-                <Text style={s.summaryTitle}>Cost Summary</Text>
-                {[
-                  { l: 'Purchase', v: purchasePrice || '0' },
-                  { l: 'Shipping', v: shippingCost || '0' },
-                  { l: 'Prep', v: prepCost || '0' },
-                ].map((r, i) => (
-                  <View key={i} style={s.summaryRow}><Text style={s.summaryLabel}>{r.l}</Text><Text style={s.summaryValue}>${r.v}</Text></View>
-                ))}
-                <View style={s.summaryDivider} />
-                <View style={s.summaryRow}>
-                  <Text style={[s.summaryLabel, { fontFamily: 'Mulish_700Bold' }]}>Total</Text>
-                  <Text style={[s.summaryValue, { fontFamily: 'Mulish_700Bold', fontSize: 17 }]}>${totalCost.toFixed(2)}</Text>
+
+              {/* Summary */}
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>Summary</Text>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Total Cost</Text>
+                  <Text style={styles.summaryValue}>${totalCost.toFixed(2)}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Target Price</Text>
+                  <Text style={styles.summaryValue}>${parseFloat(targetPrice) || 0}</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabelBold}>Est. Profit</Text>
+                  <Text style={[styles.summaryValueBold, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
+                    ${potentialProfit.toFixed(2)}
+                  </Text>
                 </View>
               </View>
             </View>
           )}
+
           <View style={{ height: 20 }} />
         </ScrollView>
 
-        {/* Bottom */}
-        <View style={[s.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {/* Bottom Actions */}
+        <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           {step > 0 && (
-            <TouchableOpacity testID="prev-step-btn" style={s.prevBtn} onPress={() => setStep(s2 => s2 - 1)} activeOpacity={0.6}>
-              <Text style={s.prevText}>Back</Text>
+            <TouchableOpacity
+              testID="prev-step-btn"
+              style={styles.prevBtn}
+              onPress={() => setStep(s => s - 1)}
+              activeOpacity={0.6}
+            >
+              <Feather name="arrow-left" size={18} color={colors.textSecondary} />
+              <Text style={styles.prevText}>Back</Text>
             </TouchableOpacity>
           )}
           {step < 2 ? (
-            <TouchableOpacity testID="next-step-btn" style={[s.nextBtn, step === 0 && { flex: 1 }]} onPress={() => setStep(s2 => s2 + 1)} activeOpacity={0.7}>
-              <Text style={s.nextText}>Next</Text>
+            <TouchableOpacity
+              testID="next-step-btn"
+              style={[styles.nextBtn, step === 0 && { flex: 1 }]}
+              onPress={() => setStep(s => s + 1)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.nextText}>Next</Text>
+              <Feather name="arrow-right" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity testID="save-item-btn" style={s.nextBtn} onPress={() => saveItem(false)} disabled={saving} activeOpacity={0.7}>
-              <Text style={s.nextText}>{saving ? 'Saving...' : 'Save Item'}</Text>
+            <TouchableOpacity
+              testID="save-item-btn"
+              style={styles.saveBtn}
+              onPress={() => saveItem(false)}
+              disabled={saving}
+              activeOpacity={0.7}
+            >
+              <Feather name="check" size={18} color="#FFFFFF" />
+              <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Item'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -201,44 +403,378 @@ export default function AddItemScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.containerPadding, marginBottom: 16 },
-  closeBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: 'Mulish_700Bold', fontSize: 16, color: colors.textPrimary },
-  draftText: { fontFamily: 'Mulish_600SemiBold', fontSize: 14, color: colors.accent },
-  steps: { flexDirection: 'row', paddingHorizontal: spacing.containerPadding, gap: 12, marginBottom: 24 },
-  stepItem: { flex: 1, gap: 6, alignItems: 'center' },
-  stepBar: { width: '100%', height: 3, borderRadius: 2, backgroundColor: colors.border },
-  stepBarActive: { backgroundColor: colors.textPrimary },
-  stepLabel: { fontFamily: 'Mulish_400Regular', fontSize: 11, color: colors.textTertiary, letterSpacing: 0.3 },
-  stepLabelActive: { fontFamily: 'Mulish_700Bold', color: colors.textPrimary },
-  scroll: { flex: 1 },
-  stepContent: { paddingHorizontal: spacing.containerPadding, gap: 18 },
-  stepTitle: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24, color: colors.textPrimary, letterSpacing: -0.5, marginBottom: 4 },
-  field: { gap: 8 },
-  fieldLabel: { fontFamily: 'Mulish_600SemiBold', fontSize: 12, color: colors.textSecondary, letterSpacing: 0.3, textTransform: 'uppercase' },
-  textInput: { backgroundColor: colors.surface, borderRadius: borderRadius.m, height: 50, paddingHorizontal: 16, fontFamily: 'Mulish_400Regular', fontSize: 15, color: colors.textPrimary, ...shadows.subtle },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: borderRadius.pill, backgroundColor: colors.surface, ...shadows.subtle },
-  chipActive: { backgroundColor: colors.textPrimary },
-  chipText: { fontFamily: 'Mulish_600SemiBold', fontSize: 13, color: colors.textSecondary },
-  chipTextActive: { color: '#FFFFFF' },
-  row: { flexDirection: 'row', gap: 12 },
-  halfField: { flex: 1, gap: 8 },
-  priceWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.m, height: 50, paddingHorizontal: 14, ...shadows.subtle },
-  prefix: { fontFamily: 'Mulish_400Regular', fontSize: 16, color: colors.textTertiary, marginRight: 4 },
-  priceInput: { flex: 1, fontFamily: 'Mulish_700Bold', fontSize: 17, color: colors.textPrimary, padding: 0 },
-  summary: { backgroundColor: colors.surfaceHighlight, borderRadius: borderRadius.l, padding: 18, gap: 8 },
-  summaryTitle: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: colors.textPrimary, marginBottom: 4 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  summaryLabel: { fontFamily: 'Mulish_400Regular', fontSize: 14, color: colors.textSecondary },
-  summaryValue: { fontFamily: 'SpaceMono_400Regular', fontSize: 14, color: colors.textPrimary },
-  summaryDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginVertical: 4 },
-  bottom: { flexDirection: 'row', gap: 10, paddingHorizontal: spacing.containerPadding, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  prevBtn: { flex: 1, height: 52, borderRadius: borderRadius.pill, backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' },
-  prevText: { fontFamily: 'Mulish_600SemiBold', fontSize: 15, color: colors.textSecondary },
-  nextBtn: { flex: 2, height: 52, borderRadius: borderRadius.pill, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center' },
-  nextText: { fontFamily: 'Mulish_700Bold', fontSize: 15, color: '#FFFFFF' },
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.containerPadding,
+    marginBottom: 20,
+  },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.subtle,
+  },
+  headerTitle: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 17,
+    color: colors.textPrimary,
+  },
+  draftText: {
+    fontFamily: 'Mulish_600SemiBold',
+    fontSize: 15,
+    color: colors.accent,
+  },
+
+  // Steps
+  stepsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.containerPadding,
+    gap: 12,
+    marginBottom: 28,
+  },
+  stepItem: {
+    flex: 1,
+    gap: 8,
+  },
+  stepBar: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+  },
+  stepBarActive: {
+    backgroundColor: colors.textPrimary,
+  },
+  stepLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  stepLabel: {
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 12,
+    color: colors.textTertiary,
+  },
+  stepLabelActive: {
+    fontFamily: 'Mulish_700Bold',
+    color: colors.textPrimary,
+  },
+
+  // Scroll
+  scroll: {
+    flex: 1,
+  },
+  stepContent: {
+    paddingHorizontal: spacing.containerPadding,
+    gap: 20,
+  },
+  stepTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 26,
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  stepDesc: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: -12,
+    marginBottom: 4,
+  },
+
+  // Fields
+  field: {
+    gap: 10,
+  },
+  fieldLabel: {
+    fontFamily: 'Mulish_600SemiBold',
+    fontSize: 12,
+    color: colors.textSecondary,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  textInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.m,
+    height: spacing.inputHeight,
+    paddingHorizontal: 16,
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 15,
+    color: colors.textPrimary,
+    ...shadows.subtle,
+  },
+  textArea: {
+    height: 100,
+    paddingTop: 14,
+    textAlignVertical: 'top',
+  },
+
+  // Chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: borderRadius.pill,
+    backgroundColor: colors.surface,
+    ...shadows.subtle,
+  },
+  chipActive: {
+    backgroundColor: colors.textPrimary,
+  },
+  chipText: {
+    fontFamily: 'Mulish_600SemiBold',
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Row
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfField: {
+    flex: 1,
+    gap: 10,
+  },
+
+  // Cost Card
+  costCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.l,
+    padding: spacing.cardPadding,
+    ...shadows.card,
+  },
+  costRow: {
+    flexDirection: 'row',
+  },
+  costCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  costDivider: {
+    width: 1,
+    backgroundColor: colors.divider,
+    marginHorizontal: 8,
+  },
+  costLabel: {
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  costInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  costPrefix: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 18,
+    color: colors.textTertiary,
+    marginRight: 2,
+  },
+  costInput: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 24,
+    color: colors.textPrimary,
+    padding: 0,
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  costTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    marginTop: 16,
+    paddingTop: 14,
+  },
+  costTotalLabel: {
+    fontFamily: 'Mulish_600SemiBold',
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  costTotalValue: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 20,
+    color: colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+
+  // Target Price Card
+  targetPriceCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.l,
+    padding: spacing.cardPaddingLarge,
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  targetPriceLabel: {
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  targetPriceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  targetPricePrefix: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 28,
+    color: colors.textTertiary,
+    marginRight: 4,
+  },
+  targetPriceInput: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 48,
+    color: colors.textPrimary,
+    padding: 0,
+    minWidth: 100,
+    textAlign: 'center',
+    letterSpacing: -1,
+  },
+  profitPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  profitPreviewLabel: {
+    fontFamily: 'Mulish_500Medium',
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  profitPreviewValue: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+
+  // Summary Card
+  summaryCard: {
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: borderRadius.l,
+    padding: spacing.cardPadding,
+  },
+  summaryTitle: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 15,
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  summaryLabel: {
+    fontFamily: 'Mulish_400Regular',
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  summaryValue: {
+    fontFamily: 'SpaceMono_400Regular',
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  summaryDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: 8,
+  },
+  summaryLabelBold: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  summaryValueBold: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+
+  // Bottom
+  bottom: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: spacing.containerPadding,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  prevBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: spacing.buttonHeight,
+    borderRadius: borderRadius.pill,
+    backgroundColor: colors.surface,
+    ...shadows.subtle,
+  },
+  prevText: {
+    fontFamily: 'Mulish_600SemiBold',
+    fontSize: 15,
+    color: colors.textSecondary,
+  },
+  nextBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: spacing.buttonHeight,
+    borderRadius: borderRadius.pill,
+    backgroundColor: colors.textPrimary,
+    ...shadows.medium,
+  },
+  nextText: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  saveBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: spacing.buttonHeight,
+    borderRadius: borderRadius.pill,
+    backgroundColor: colors.success,
+    ...shadows.medium,
+  },
+  saveText: {
+    fontFamily: 'Mulish_700Bold',
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
 });
