@@ -11,6 +11,120 @@ import { store } from '../../src/store';
 const PLATFORMS = ['eBay', 'Depop', 'Vinted', 'Vestiaire', 'Poshmark', 'Etsy'];
 const CATEGORIES = ['Bags', 'Outerwear', 'Knitwear', 'Footwear', 'Accessories', 'Dresses', 'Tops', 'Trousers'];
 
+// Platform fee structures and recommendations
+const PLATFORM_INFO: Record<string, {
+  fees: string;
+  bestFor: string[];
+  priceRange: string;
+  audience: string;
+  pros: string[];
+}> = {
+  'eBay': {
+    fees: '~13%',
+    bestFor: ['Bags', 'Footwear', 'Accessories', 'Outerwear'],
+    priceRange: 'All prices',
+    audience: 'Wide reach, global buyers',
+    pros: ['Largest audience', 'Best for luxury items', 'Good for vintage'],
+  },
+  'Depop': {
+    fees: '~10%',
+    bestFor: ['Tops', 'Dresses', 'Accessories', 'Knitwear'],
+    priceRange: 'Under $150',
+    audience: 'Gen Z, trendy items',
+    pros: ['Lower fees', 'Fast sales for trends', 'Social features'],
+  },
+  'Vinted': {
+    fees: '0% seller',
+    bestFor: ['Tops', 'Trousers', 'Dresses', 'Knitwear'],
+    priceRange: 'Under $100',
+    audience: 'Budget-conscious buyers',
+    pros: ['No seller fees', 'High volume', 'Quick turnover'],
+  },
+  'Vestiaire': {
+    fees: '~15-25%',
+    bestFor: ['Bags', 'Accessories', 'Footwear'],
+    priceRange: 'Over $200',
+    audience: 'Luxury buyers',
+    pros: ['Authentication service', 'Premium buyers', 'Best for designer'],
+  },
+  'Poshmark': {
+    fees: '20%',
+    bestFor: ['Dresses', 'Outerwear', 'Bags', 'Footwear'],
+    priceRange: '$50-500',
+    audience: 'Fashion-focused',
+    pros: ['Social selling', 'Posh parties', 'Strong community'],
+  },
+  'Etsy': {
+    fees: '~12%',
+    bestFor: ['Accessories', 'Knitwear', 'Outerwear'],
+    priceRange: 'All prices',
+    audience: 'Vintage & handmade lovers',
+    pros: ['Best for vintage', 'Niche audience', 'Good for unique items'],
+  },
+};
+
+// Get platform recommendations based on category and price
+function getRecommendedPlatforms(category: string, price: number): Array<{ platform: string; score: number; reason: string }> {
+  const recommendations: Array<{ platform: string; score: number; reason: string }> = [];
+  
+  for (const [platform, info] of Object.entries(PLATFORM_INFO)) {
+    let score = 0;
+    let reasons: string[] = [];
+    
+    // Category match
+    if (info.bestFor.includes(category)) {
+      score += 40;
+      reasons.push(`Great for ${category}`);
+    }
+    
+    // Price range match
+    if (platform === 'Vinted' && price < 100) {
+      score += 30;
+      reasons.push('Ideal price range + 0% fees');
+    } else if (platform === 'Depop' && price < 150) {
+      score += 25;
+      reasons.push('Good price range for audience');
+    } else if (platform === 'Vestiaire' && price > 200) {
+      score += 35;
+      reasons.push('Premium price = premium platform');
+    } else if (platform === 'Poshmark' && price >= 50 && price <= 500) {
+      score += 20;
+      reasons.push('Sweet spot pricing');
+    } else if (platform === 'eBay') {
+      score += 15;
+      reasons.push('Wide reach');
+    } else if (platform === 'Etsy' && (category === 'Accessories' || category === 'Knitwear')) {
+      score += 25;
+      reasons.push('Niche audience match');
+    }
+    
+    // Fee advantage for lower priced items
+    if (platform === 'Vinted' && price < 80) {
+      score += 20;
+      reasons.push('No fees = max profit');
+    } else if (platform === 'Depop' && price < 100) {
+      score += 10;
+      reasons.push('Lower fees');
+    }
+    
+    // Luxury item boost
+    if (price > 300 && (platform === 'Vestiaire' || platform === 'eBay')) {
+      score += 15;
+      reasons.push('Best for luxury');
+    }
+    
+    if (score > 0) {
+      recommendations.push({
+        platform,
+        score,
+        reason: reasons[0] || 'Good option',
+      });
+    }
+  }
+  
+  return recommendations.sort((a, b) => b.score - a.score).slice(0, 3);
+}
+
 interface CalcResult {
   total_cost_basis: number;
   estimated_fees: number;
@@ -55,6 +169,11 @@ export default function SourceScreen() {
   const [result, setResult] = useState<CalcResult | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [showCosts, setShowCosts] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  
+  // Get smart platform recommendations
+  const price = parseFloat(expectedSale) || 0;
+  const recommendations = (category && price > 0) ? getRecommendedPlatforms(category, price) : [];
 
   useEffect(() => {
     store.getLastPlatform().then(setPlatform);
@@ -159,6 +278,83 @@ export default function SourceScreen() {
             </View>
           </ScrollView>
         </View>
+
+        {/* Smart Platform Recommendations */}
+        {recommendations.length > 0 && (
+          <View style={styles.recommendSection}>
+            <TouchableOpacity 
+              style={styles.recommendHeader}
+              onPress={() => setShowRecommendations(!showRecommendations)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.recommendHeaderLeft}>
+                <View style={styles.recommendIcon}>
+                  <Feather name="zap" size={14} color={colors.warning} />
+                </View>
+                <Text style={styles.recommendTitle}>Smart Recommendation</Text>
+              </View>
+              <Feather 
+                name={showRecommendations ? "chevron-up" : "chevron-down"} 
+                size={18} 
+                color={colors.textTertiary} 
+              />
+            </TouchableOpacity>
+            
+            {showRecommendations && (
+              <View style={styles.recommendContent}>
+                {recommendations.map((rec, index) => {
+                  const info = PLATFORM_INFO[rec.platform];
+                  const isSelected = platform === rec.platform;
+                  const isBest = index === 0;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={rec.platform}
+                      style={[
+                        styles.recommendCard,
+                        isSelected && styles.recommendCardSelected,
+                        isBest && styles.recommendCardBest,
+                      ]}
+                      onPress={() => setPlatform(rec.platform)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.recommendCardHeader}>
+                        <View style={styles.recommendCardTitleRow}>
+                          <Text style={[
+                            styles.recommendCardTitle,
+                            isSelected && styles.recommendCardTitleSelected
+                          ]}>
+                            {rec.platform}
+                          </Text>
+                          {isBest && (
+                            <View style={styles.bestBadge}>
+                              <Text style={styles.bestBadgeText}>Best Match</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.recommendCardFees}>{info.fees} fees</Text>
+                      </View>
+                      <Text style={styles.recommendCardReason}>{rec.reason}</Text>
+                      {isSelected && (
+                        <View style={styles.selectedIndicator}>
+                          <Feather name="check" size={14} color={colors.brand} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                
+                {/* Platform tip */}
+                <View style={styles.platformTip}>
+                  <Feather name="info" size={12} color={colors.textMuted} />
+                  <Text style={styles.platformTipText}>
+                    Tap a suggestion to select it, or choose manually above
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Price Inputs Card */}
         <View style={styles.priceCard}>
@@ -420,6 +616,122 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.textInverse,
+  },
+
+  // Smart Recommendations
+  recommendSection: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    marginBottom: space[4],
+    overflow: 'hidden',
+    ...shadows.xs,
+  },
+  recommendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: space[4],
+  },
+  recommendHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  recommendIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.warningLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recommendTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+  },
+  recommendContent: {
+    paddingHorizontal: space[4],
+    paddingBottom: space[4],
+    gap: space[2],
+  },
+  recommendCard: {
+    flexDirection: 'column',
+    padding: space[3],
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  recommendCardSelected: {
+    borderColor: colors.brand,
+    backgroundColor: colors.surfaceMuted,
+  },
+  recommendCardBest: {
+    backgroundColor: colors.successLight,
+  },
+  recommendCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: space[1],
+  },
+  recommendCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  recommendCardTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+  },
+  recommendCardTitleSelected: {
+    color: colors.brand,
+  },
+  recommendCardFees: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+  },
+  recommendCardReason: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+  },
+  bestBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+  },
+  bestBadgeText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 9,
+    color: colors.textInverse,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: space[3],
+    right: space[3],
+  },
+  platformTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginTop: space[2],
+    paddingTop: space[2],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  platformTipText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    flex: 1,
   },
 
   // Price Card
