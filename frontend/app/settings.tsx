@@ -91,6 +91,7 @@ export default function SettingsScreen() {
   const [targetROI, setTargetROI] = useState('');
   const [minProfit, setMinProfit] = useState('');
   const [minMargin, setMinMargin] = useState('');
+  const [staleDays, setStaleDays] = useState('');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
 
   useEffect(() => {
@@ -101,6 +102,7 @@ export default function SettingsScreen() {
       setTargetROI(String(s.target_roi || 50));
       setMinProfit(String(s.min_profit || 10));
       setMinMargin(String(s.min_margin || 30));
+      setStaleDays(String(s.stale_days || 30));
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -114,6 +116,7 @@ export default function SettingsScreen() {
         target_roi: parseFloat(targetROI) || 50,
         min_profit: parseFloat(minProfit) || 10,
         min_margin: parseFloat(minMargin) || 30,
+        stale_days: parseInt(staleDays) || 30,
       });
       Alert.alert('Saved', 'Settings updated successfully');
     } catch (e) {
@@ -267,6 +270,24 @@ export default function SettingsScreen() {
                 placeholderTextColor={colors.textMuted}
               />
               <Text style={styles.rulePercent}>%</Text>
+            </View>
+          </View>
+          <Divider />
+          <View style={styles.ruleRow}>
+            <View style={styles.ruleInfo}>
+              <Text style={styles.ruleLabel}>Stale After</Text>
+              <Text style={styles.ruleDesc}>Days until item is flagged stale</Text>
+            </View>
+            <View style={styles.ruleInputWrap}>
+              <TextInput
+                style={styles.ruleInput}
+                value={staleDays}
+                onChangeText={setStaleDays}
+                keyboardType="numeric"
+                placeholder="30"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={styles.ruleSuffix}>days</Text>
             </View>
           </View>
         </View>
@@ -569,6 +590,10 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   rulePercent: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  ruleSuffix: {
     ...typography.caption,
     color: colors.textTertiary,
   },

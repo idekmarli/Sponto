@@ -7,6 +7,7 @@ import { colors, space, radius, fontFamily, fontSize, spacing, shadows, statusCo
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { EmptyState } from '../../src/components/UI';
+import { Toast } from '../../src/components/Toast';
 
 // Vibrant Pipeline Stage Colors
 const pipelineColors = {
@@ -32,13 +33,23 @@ const STAGES = [
 ];
 
 // Pipeline Item Card - Enhanced with price, profit, and photo
-function PipelineCard({ item, onPress }: { item: any; onPress: () => void }) {
+function PipelineCard({ item, onPress, onAdvance, currentStage }: { 
+  item: any; 
+  onPress: () => void; 
+  onAdvance: () => void;
+  currentStage: string;
+}) {
   const { formatAmount } = useCurrency();
   const daysInfo = item.days_listed ?? item.days_in_inventory;
   const hasPhoto = item.photos && item.photos.length > 0 && item.photos[0];
   const price = item.listed_price || item.target_list_price || item.purchase_price;
   const profit = item.profit || (item.listed_price && item.purchase_price ? item.listed_price - item.purchase_price : 0);
   const isStale = daysInfo > 30;
+  
+  // Get next stage
+  const currentIndex = STAGES.findIndex(s => s.key === currentStage);
+  const nextStage = currentIndex < STAGES.length - 1 ? STAGES[currentIndex + 1] : null;
+  const isCompleted = currentStage === 'completed';
   
   return (
     <TouchableOpacity
@@ -76,16 +87,30 @@ function PipelineCard({ item, onPress }: { item: any; onPress: () => void }) {
         </View>
       )}
       
-      {/* Platform badges */}
-      {item.platforms?.length > 0 && (
-        <View style={styles.pipePlatforms}>
-          {item.platforms.slice(0, 2).map((p: string, i: number) => (
-            <View key={p} style={styles.pipePlatformBadge}>
-              <Text style={styles.pipePlatformText}>{p.charAt(0).toUpperCase()}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+      {/* Platform badges + Advance button */}
+      <View style={styles.pipeBottomRow}>
+        {item.platforms?.length > 0 && (
+          <View style={styles.pipePlatforms}>
+            {item.platforms.slice(0, 2).map((p: string, i: number) => (
+              <View key={p} style={styles.pipePlatformBadge}>
+                <Text style={styles.pipePlatformText}>{p.charAt(0).toUpperCase()}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        
+        {/* Advance button */}
+        {nextStage && !isCompleted && (
+          <TouchableOpacity
+            style={[styles.pipeAdvanceBtn, { backgroundColor: nextStage.color + '20', borderColor: nextStage.color }]}
+            onPress={(e) => { e.stopPropagation(); onAdvance(); }}
+            activeOpacity={0.6}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="arrow-right" size={12} color={nextStage.color} />
+          </TouchableOpacity>
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
@@ -96,6 +121,7 @@ export default function PipelineScreen() {
   const [pipeline, setPipeline] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
 
   const fetchPipeline = useCallback(async () => {
     try {
@@ -113,6 +139,23 @@ export default function PipelineScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  // Advance item to next stage
+  const advanceItem = async (item: any, currentStage: string) => {
+    const currentIndex = STAGES.findIndex(s => s.key === currentStage);
+    if (currentIndex >= STAGES.length - 1) return;
+    
+    const nextStage = STAGES[currentIndex + 1].key;
+    
+    try {
+      await api.updateItem(item.id, { status: nextStage });
+      setToast({ visible: true, message: `Moved to ${nextStage}`, type: 'success' });
+      fetchPipeline(); // Refresh
+    } catch (e) {
+      console.error(e);
+      setToast({ visible: true, message: 'Failed to update', type: 'error' });
+    }
+  };
 
   useEffect(() => {
     fetchPipeline();
@@ -223,7 +266,9 @@ export default function PipelineScreen() {
                 <PipelineCard
                   key={item.id}
                   item={item}
+                  currentStage={stage.key}
                   onPress={() => router.push(`/item/${item.id}`)}
+                  onAdvance={() => advanceItem(item, stage.key)}
                 />
               ))}
             </ScrollView>
@@ -232,6 +277,13 @@ export default function PipelineScreen() {
       })}
 
       <View style={{ height: space[8] }} />
+
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
     </ScrollView>
   );
 }
@@ -447,5 +499,18 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: 10,
     color: colors.textTertiary,
+  },
+  pipeBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pipeAdvanceBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

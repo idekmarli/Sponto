@@ -90,6 +90,7 @@ class SettingsModel(BaseModel):
     target_roi: float = 50.0
     min_profit: float = 10.0
     min_margin: float = 30.0  # Margin threshold for margin_risk tag
+    stale_days: int = 30  # Days until item is flagged stale
     dead_stock_thresholds: Dict[str, int] = {"stale": 45, "dead": 90}
     default_packaging_cost: float = 2.0
     default_shipping: float = 5.0
