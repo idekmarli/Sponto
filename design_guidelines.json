@@ -1,0 +1,159 @@
+{
+  "identity": {
+    "name": "Resellr OS",
+    "persona": "The Fashion Editor's Operating System",
+    "vibe": "Luxury, Calm, Editorial, Tactile, Organized",
+    "tone": "Expensive yet functional. Not a spreadsheet, but a workspace."
+  },
+  "typography": {
+    "provider": "expo-google-fonts",
+    "families": {
+      "headings": "PlayfairDisplay_700Bold",
+      "body": "Mulish_400Regular",
+      "bodyBold": "Mulish_700Bold",
+      "mono": "SpaceMono_400Regular"
+    },
+    "instructions": "Use Playfair Display for large metrics (Net Profit) and Section Headers. Use Mulish for all UI text, labels, and lists. Use Space Mono for SKU numbers or data tables.",
+    "sizes": {
+      "display": 48,
+      "h1": 32,
+      "h2": 24,
+      "h3": 20,
+      "body": 16,
+      "caption": 14,
+      "small": 12
+    }
+  },
+  "colors": {
+    "theme": "light",
+    "palette": {
+      "background": "#F9F8F6",
+      "surface": "#FFFFFF",
+      "surfaceHighlight": "#F2F0ED",
+      "textPrimary": "#1C1C1E",
+      "textSecondary": "#6E6E73",
+      "textTertiary": "#AEAeb2",
+      "primary": "#2C2C2E",
+      "accent": "#8C7B70",
+      "success": "#7A8C75",
+      "warning": "#BC7C68",
+      "error": "#A64444",
+      "border": "#E5E5EA",
+      "divider": "#F0F0F0"
+    },
+    "usage": {
+      "primaryAction": "#2C2C2E",
+      "secondaryAction": "#E5E5EA",
+      "profit": "#7A8C75",
+      "loss": "#BC7C68"
+    }
+  },
+  "spacing": {
+    "base": 4,
+    "xs": 4,
+    "s": 8,
+    "m": 16,
+    "l": 24,
+    "xl": 32,
+    "xxl": 48,
+    "containerPadding": 20,
+    "cardPadding": 16
+  },
+  "borderRadius": {
+    "s": 4,
+    "m": 12,
+    "l": 16,
+    "xl": 24,
+    "pill": 9999
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "subtle": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 2 },
+        "shadowOpacity": 0.05,
+        "shadowRadius": 10,
+        "elevation": 2
+      },
+      "medium": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 4 },
+        "shadowOpacity": 0.1,
+        "shadowRadius": 15,
+        "elevation": 5
+      }
+    },
+    "borders": "1px solid #E5E5EA"
+  },
+  "components": {
+    "Button": {
+      "style": "pill",
+      "height": 56,
+      "textStyle": "Mulish_700Bold",
+      "variants": {
+        "primary": {
+          "backgroundColor": "#2C2C2E",
+          "textColor": "#FFFFFF"
+        },
+        "secondary": {
+          "backgroundColor": "#F2F0ED",
+          "textColor": "#1C1C1E"
+        },
+        "outline": {
+          "backgroundColor": "transparent",
+          "borderColor": "#E5E5EA",
+          "borderWidth": 1,
+          "textColor": "#1C1C1E"
+        }
+      }
+    },
+    "Card": {
+      "backgroundColor": "#FFFFFF",
+      "borderRadius": 16,
+      "padding": 16,
+      "borderWidth": 1,
+      "borderColor": "#F0F0F0"
+    },
+    "Input": {
+      "height": 56,
+      "backgroundColor": "#F9F8F6",
+      "borderRadius": 12,
+      "paddingHorizontal": 16,
+      "fontSize": 16,
+      "fontFamily": "Mulish_400Regular"
+    }
+  },
+  "assets": {
+    "image_urls": {
+      "inventory_mock": [
+        "https://images.unsplash.com/photo-1770733530182-cf94277c3cf7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwzfHx2aW50YWdlJTIwZGVzaWduZXIlMjBoYW5kYmFnJTIwYWVzdGhldGljfGVufDB8fHx8MTc3Mzc2MzI0NHww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1758879219613-1e161ce3b369?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwyfHx2aW50YWdlJTIwZGVzaWduZXIlMjBoYW5kYmFnJTIwYWVzdGhldGljfGVufDB8fHx8MTc3Mzc2MzI0NHww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1478887011962-709960f8ced8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwzfHxyZXRybyUyMHNuZWFrZXIlMjBjb2xsZWN0aW9uJTIwc2hlbGZ8ZW58MHx8fHwxNzczNzYzMjQ1fDA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1502238074616-a146498d5158?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwyfHxyZXRybyUyMHNuZWFrZXIlMjBjb2xsZWN0aW9uJTIwc2hlbGZ8ZW58MHx8fHwxNzczNzYzMjQ1fDA&ixlib=rb-4.1.0&q=85"
+      ],
+      "hero_bg": "https://images.unsplash.com/photo-1654624745126-298502155c69?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHw0fHx2aW50YWdlJTIwZGVzaWduZXIlMjBoYW5kYmFnJTIwYWVzdGhldGljfGVufDB8fHx8MTc3Mzc2MzI0NHww&ixlib=rb-4.1.0&q=85"
+    }
+  },
+  "layout_rules": {
+    "safe_area": "Always wrap main screen content in SafeAreaView or use useSafeAreaInsets.",
+    "tab_bar": "Custom implementation required. Height 80px, no top border, floating effect or clean flat integration.",
+    "charts": "Custom SVG charts only. Use react-native-svg. Minimal line charts with Bezier curves. No grid lines. Only x-axis labels."
+  },
+  "instructions_to_main_agent": [
+    "Install expo-google-fonts for Playfair Display and Mulish.",
+    "Use StyleSheet.create for all styles. NO inline styles for complex layouts.",
+    "Use the specific color palette provided. Do not use generic 'black' or 'white'.",
+    "Ensure hit slop is added to all small touchable elements.",
+    "For the 'Source Calculator', use a large numeric keypad input design, not the native keyboard.",
+    "Implement the 'Pipeline' as a horizontal scrollable view with cards for each stage."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories = main agent will use placeholder text which is FORBIDDEN"
+  ]
+}
