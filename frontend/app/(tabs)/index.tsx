@@ -1,16 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, cardStyles, buttonStyles, actionTypeConfig, priorityConfig } from '../../src/theme';
+import { colors as staticColors, space, radius, fontFamily, fontSize, spacing, shadows, typography, cardStyles, buttonStyles, actionTypeConfig, priorityConfig } from '../../src/theme';
 import { api } from '../../src/api';
 import { useCurrency } from '../../src/currency';
 import { QuickActionSheet } from '../../src/components/QuickActionSheet';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
 import { Skeleton, SkeletonStatCard, SkeletonListItem } from '../../src/components/UI';
+import { useTheme } from '../../src/ThemeContext';
 
 // Glass Header Height for padding
 const HEADER_HEIGHT = 90;
@@ -19,7 +20,7 @@ const HEADER_HEIGHT = 90;
 function HeroMetric({ label, value, subValue, trend, color }: {
   label: string; value: string; subValue?: string; trend?: 'up' | 'down' | 'neutral'; color?: string;
 }) {
-  const trendColor = trend === 'up' ? colors.success : trend === 'down' ? colors.error : colors.textTertiary;
+  const trendColor = trend === 'up' ? colors.success : trend === 'down' ? colors.error : staticColors.textTertiary;
   return (
     <View style={styles.heroMetric}>
       <Text style={styles.heroLabel}>{label}</Text>
@@ -76,7 +77,7 @@ function ActionItem({ action, onQuickAction, onNavigate }: {
         <Text style={styles.actionMessage} numberOfLines={1}>{action.message}</Text>
       </View>
       {action.potential_profit != null && (
-        <Text style={[styles.actionProfit, { color: action.potential_profit >= 0 ? colors.success : colors.error }]}>
+        <Text style={[styles.actionProfit, { color: action.potential_profit >= 0 ? colors.success : staticColors.error }]}>
           {action.potential_profit >= 0 ? '+' : ''}{formatAmount(action.potential_profit)}
         </Text>
       )}
@@ -99,9 +100,9 @@ function ActionItem({ action, onQuickAction, onNavigate }: {
 function QuickActionButton({ icon, label, onPress, variant = 'default' }: {
   icon: string; label: string; onPress: () => void; variant?: 'default' | 'primary' | 'success';
 }) {
-  const bgColor = variant === 'primary' ? colors.brand : variant === 'success' ? colors.success : colors.surface;
-  const textColor = variant === 'default' ? colors.textPrimary : colors.textInverse;
-  const iconColor = variant === 'default' ? colors.brand : colors.textInverse;
+  const bgColor = variant === 'primary' ? colors.brand : variant === 'success' ? colors.success : staticColors.surface;
+  const textColor = variant === 'default' ? colors.textPrimary : staticColors.textInverse;
+  const iconColor = variant === 'default' ? colors.brand : staticColors.textInverse;
 
   return (
     <TouchableOpacity
@@ -109,7 +110,7 @@ function QuickActionButton({ icon, label, onPress, variant = 'default' }: {
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[styles.quickActionIcon, variant === 'default' && { backgroundColor: colors.surfaceMuted }]}>
+      <View style={[styles.quickActionIcon, variant === 'default' && { backgroundColor: staticColors.surfaceMuted }]}>
         <Feather name={icon as any} size={18} color={iconColor} />
       </View>
       <Text style={[styles.quickActionLabel, { color: textColor }]}>{label}</Text>
@@ -121,6 +122,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { formatAmount, formatAmountCompact } = useCurrency();
+  const { colors, themeId } = useTheme();
   const [dashboard, setDashboard] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -249,15 +251,15 @@ export default function HomeScreen() {
   const topActions = actions.slice(0, 5);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: staticColors.background }]}>
       {/* Glass Header */}
-      <View style={[styles.glassHeader, Platform.OS === 'web' && styles.glassHeaderWeb]}>
+      <View style={[styles.glassHeader, Platform.OS === 'web' && styles.glassHeaderWeb, { backgroundColor: staticColors.background + 'E6' }]}>
         <View style={[styles.glassHeaderContent, { paddingTop: insets.top + space[2] }]}>
           <View>
-            <Text style={styles.greeting}>Resellr OS</Text>
-            <Text style={styles.date}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
+            <Text style={[styles.greeting, { color: staticColors.textPrimary }]}>Resellr OS</Text>
+            <Text style={[styles.date, { color: staticColors.textTertiary }]}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</Text>
           </View>
-          <TouchableOpacity testID="settings-btn" onPress={() => router.push('/settings')} style={styles.settingsBtn} activeOpacity={0.7}>
+          <TouchableOpacity testID="settings-btn" onPress={() => router.push('/settings')} style={[styles.settingsBtn, { backgroundColor: staticColors.surface }]} activeOpacity={0.7}>
             <Feather name="settings" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -274,45 +276,64 @@ export default function HomeScreen() {
       >
 
         {/* ─── HERO METRICS CARD ─── */}
-        <View style={styles.heroCard}>
+        <View style={[styles.heroCard, { backgroundColor: staticColors.surface }]}>
           <View style={styles.heroRow}>
-            <HeroMetric 
-              label="Active Capital" 
-              value={formatAmountCompact(metrics.active_capital || 0)}
-              subValue={`${metrics.total_active || 0} items`}
-            />
-            <View style={styles.heroDivider} />
-            <HeroMetric 
-              label="Monthly Profit" 
-              value={formatAmountCompact(metrics.monthly_profit || 0)}
-              subValue={metrics.monthly_profit > 0 ? `${metrics.avg_roi || 0}% ROI` : '—'}
-              trend={metrics.monthly_profit > 0 ? 'up' : 'neutral'}
-              color={metrics.monthly_profit > 0 ? colors.success : colors.textPrimary}
-            />
+            <View style={styles.heroMetric}>
+              <Text style={[styles.heroLabel, { color: staticColors.textTertiary }]}>ACTIVE CAPITAL</Text>
+              <Text style={[styles.heroValue, { color: staticColors.textPrimary }]}>{formatAmountCompact(metrics.active_capital || 0)}</Text>
+              <Text style={[styles.heroSub, { color: staticColors.textTertiary }]}>{metrics.total_active || 0} items</Text>
+            </View>
+            <View style={[styles.heroDivider, { backgroundColor: staticColors.border }]} />
+            <View style={styles.heroMetric}>
+              <Text style={[styles.heroLabel, { color: staticColors.textTertiary }]}>MONTHLY PROFIT</Text>
+              <Text style={[styles.heroValue, { color: metrics.monthly_profit > 0 ? colors.success : staticColors.textPrimary }]}>{formatAmountCompact(metrics.monthly_profit || 0)}</Text>
+              <View style={styles.heroSubRow}>
+                {metrics.monthly_profit > 0 && <Feather name="trending-up" size={12} color={colors.success} />}
+                <Text style={[styles.heroSub, { color: metrics.monthly_profit > 0 ? colors.success : staticColors.textTertiary }]}>
+                  {metrics.monthly_profit > 0 ? `${metrics.avg_roi || 0}% ROI` : '—'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
         {/* ─── STAT PILLS ─── */}
         <View style={styles.statPillsRow}>
-          <StatPill icon="package" value={metrics.total_active || 0} label="Active" color={colors.brand} />
-          <StatPill icon="tag" value={metrics.total_listed || 0} label="Listed" color={colors.success} />
-          <StatPill icon="clock" value={metrics.total_stale || 0} label="Stale" color={colors.warning} />
-          <StatPill icon="alert-octagon" value={metrics.dead_stock_count || 0} label="Dead" color={colors.error} />
+          <View style={[styles.statPill, { backgroundColor: staticColors.surface }]}>
+            <View style={styles.statPillIcon}><Feather name="package" size={14} color={colors.brand} /></View>
+            <Text style={[styles.statPillValue, { color: staticColors.brand }]}>{metrics.total_active || 0}</Text>
+            <Text style={[styles.statPillLabel, { color: staticColors.textTertiary }]}>Active</Text>
+          </View>
+          <View style={[styles.statPill, { backgroundColor: staticColors.surface }]}>
+            <View style={styles.statPillIcon}><Feather name="tag" size={14} color={colors.success} /></View>
+            <Text style={[styles.statPillValue, { color: staticColors.success }]}>{metrics.total_listed || 0}</Text>
+            <Text style={[styles.statPillLabel, { color: staticColors.textTertiary }]}>Listed</Text>
+          </View>
+          <View style={[styles.statPill, { backgroundColor: staticColors.surface }]}>
+            <View style={styles.statPillIcon}><Feather name="clock" size={14} color={colors.warning} /></View>
+            <Text style={[styles.statPillValue, { color: staticColors.warning }]}>{metrics.total_stale || 0}</Text>
+            <Text style={[styles.statPillLabel, { color: staticColors.textTertiary }]}>Stale</Text>
+          </View>
+          <View style={[styles.statPill, { backgroundColor: staticColors.surface }]}>
+            <View style={styles.statPillIcon}><Feather name="alert-octagon" size={14} color={colors.error} /></View>
+            <Text style={[styles.statPillValue, { color: staticColors.error }]}>{metrics.dead_stock_count || 0}</Text>
+            <Text style={[styles.statPillLabel, { color: staticColors.textTertiary }]}>Dead</Text>
+          </View>
         </View>
 
         {/* ─── FIRST ITEM GUIDANCE ─── */}
         {metrics.total_active === 0 && (
           <TouchableOpacity 
-            style={styles.firstItemCard} 
+            style={[styles.firstItemCard, { backgroundColor: staticColors.surface, borderColor: staticColors.brand }]} 
             onPress={() => router.push('/quick-add')}
             activeOpacity={0.7}
           >
-            <View style={styles.firstItemIconWrap}>
+            <View style={[styles.firstItemIconWrap, { backgroundColor: staticColors.surfaceMuted }]}>
               <Feather name="plus-circle" size={28} color={colors.brand} />
             </View>
             <View style={styles.firstItemContent}>
-              <Text style={styles.firstItemTitle}>Add your first item</Text>
-              <Text style={styles.firstItemDesc}>Start tracking your inventory and watch your profits grow</Text>
+              <Text style={[styles.firstItemTitle, { color: staticColors.textPrimary }]}>Add your first item</Text>
+              <Text style={[styles.firstItemDesc, { color: staticColors.textSecondary }]}>Start tracking your inventory and watch your profits grow</Text>
             </View>
             <Feather name="chevron-right" size={20} color={colors.textMuted} />
           </TouchableOpacity>
@@ -320,43 +341,104 @@ export default function HomeScreen() {
 
         {/* ─── QUICK ACTIONS ─── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: staticColors.textPrimary }]}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <QuickActionButton icon="plus" label="Add Item" onPress={() => router.push('/quick-add')} variant="primary" />
-            <QuickActionButton icon="zap" label="Source Calc" onPress={() => router.push('/source')} />
-            <QuickActionButton icon="alert-triangle" label="Dead Stock" onPress={() => router.push('/deadstock')} />
-            <QuickActionButton icon="bar-chart-2" label="Insights" onPress={() => router.push('/insights')} />
+            <TouchableOpacity 
+              style={[styles.quickAction, { backgroundColor: staticColors.brand }]}
+              onPress={() => router.push('/quick-add')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: staticColors.surface + '33' }]}>
+                <Feather name="plus" size={18} color={colors.textInverse} />
+              </View>
+              <Text style={[styles.quickActionLabel, { color: staticColors.textInverse }]}>Add Item</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.quickAction, { backgroundColor: staticColors.surface }]}
+              onPress={() => router.push('/source')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: staticColors.warningLight }]}>
+                <Feather name="zap" size={18} color={colors.warning} />
+              </View>
+              <Text style={[styles.quickActionLabel, { color: staticColors.textPrimary }]}>Source Calc</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.quickAction, { backgroundColor: staticColors.surface }]}
+              onPress={() => router.push('/deadstock')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: staticColors.errorLight }]}>
+                <Feather name="alert-triangle" size={18} color={colors.error} />
+              </View>
+              <Text style={[styles.quickActionLabel, { color: staticColors.textPrimary }]}>Dead Stock</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.quickAction, { backgroundColor: staticColors.surface }]}
+              onPress={() => router.push('/insights')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: staticColors.surfaceMuted }]}>
+                <Feather name="bar-chart-2" size={18} color={colors.textPrimary} />
+              </View>
+              <Text style={[styles.quickActionLabel, { color: staticColors.textPrimary }]}>Insights</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* ─── ACTION FEED ─── */}
         <View style={[styles.section, styles.sectionWithTopSpace]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>This Week</Text>
+            <Text style={[styles.sectionTitle, { color: staticColors.textPrimary }]}>This Week</Text>
             {actions.length > 5 && (
               <TouchableOpacity onPress={() => router.push('/deadstock')} activeOpacity={0.6}>
-                <Text style={styles.seeAll}>See all {actions.length}</Text>
+                <Text style={[styles.seeAll, { color: staticColors.brand }]}>See all {actions.length}</Text>
               </TouchableOpacity>
             )}
           </View>
           
           {topActions.length === 0 ? (
-            <View style={styles.emptyActions}>
-              <View style={styles.emptyIcon}>
+            <View style={[styles.emptyActions, { backgroundColor: staticColors.surface }]}>
+              <View style={[styles.emptyIcon, { backgroundColor: staticColors.successLight }]}>
                 <Feather name="check-circle" size={24} color={colors.success} />
               </View>
-              <Text style={styles.emptyTitle}>All clear</Text>
-              <Text style={styles.emptyText}>No urgent actions this week</Text>
+              <Text style={[styles.emptyTitle, { color: staticColors.textPrimary }]}>All clear</Text>
+              <Text style={[styles.emptyText, { color: staticColors.textTertiary }]}>No urgent actions this week</Text>
             </View>
           ) : (
             <View style={styles.actionsList}>
               {topActions.map((action: any, i: number) => (
-                <ActionItem
+                <TouchableOpacity
                   key={action.item_id || `action-${i}`}
-                  action={action}
-                  onQuickAction={handleQuickAction}
-                  onNavigate={() => router.push(`/item/${action.item_id}`)}
-                />
+                  testID={`action-${action.item_id || action.id}`}
+                  style={[styles.actionCard, { backgroundColor: staticColors.surface }]}
+                  onPress={() => router.push(`/item/${action.item_id}`)}
+                  activeOpacity={0.6}
+                >
+                  <View style={[styles.actionIconWrap, { backgroundColor: actionTypeConfig[action.type]?.bg || colors.surfaceMuted }]}>
+                    <Feather name={(actionTypeConfig[action.type]?.icon || 'info') as any} size={16} color={actionTypeConfig[action.type]?.color || colors.textSecondary} />
+                  </View>
+                  <View style={styles.actionContent}>
+                    <Text style={[styles.actionTitle, { color: staticColors.textPrimary }]} numberOfLines={1}>{action.title}</Text>
+                    <Text style={[styles.actionMessage, { color: staticColors.textTertiary }]} numberOfLines={1}>{action.message}</Text>
+                  </View>
+                  {action.potential_profit != null && (
+                    <Text style={[styles.actionProfit, { color: action.potential_profit >= 0 ? colors.success : staticColors.error }]}>
+                      {action.potential_profit >= 0 ? '+' : ''}{formatAmount(action.potential_profit)}
+                    </Text>
+                  )}
+                  {['sold_pending', 'shipped_pending', 'needs_listing', 'stale_reprice', 'critical_stale'].includes(action.type) ? (
+                    <TouchableOpacity 
+                      style={[styles.actionQuickBtn, { backgroundColor: staticColors.brand }]}
+                      onPress={() => handleQuickAction(action)}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="zap" size={14} color={colors.textInverse} />
+                    </TouchableOpacity>
+                  ) : (
+                    <Feather name="chevron-right" size={18} color={colors.textMuted} />
+                  )}
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -364,14 +446,14 @@ export default function HomeScreen() {
 
         {/* ─── VELOCITY CARD ─── */}
         {metrics.avg_days_to_sell > 0 && (
-          <View style={styles.velocityCard}>
-            <View style={styles.velocityLeft}>
-              <Text style={styles.velocityLabel}>Avg. Time to Sell</Text>
-              <Text style={styles.velocityValue}>{metrics.avg_days_to_sell} days</Text>
+          <View style={[styles.velocityCard, { backgroundColor: staticColors.surface }]}>
+            <View style={[styles.velocityLeft, { borderRightColor: staticColors.border }]}>
+              <Text style={[styles.velocityLabel, { color: staticColors.textTertiary }]}>Avg. Time to Sell</Text>
+              <Text style={[styles.velocityValue, { color: staticColors.textPrimary }]}>{metrics.avg_days_to_sell} days</Text>
             </View>
             <View style={styles.velocityRight}>
-              <Text style={styles.velocityLabel}>Sell-Through</Text>
-              <Text style={styles.velocityValue}>{metrics.sell_through_rate || 0}%</Text>
+              <Text style={[styles.velocityLabel, { color: staticColors.textTertiary }]}>Sell-Through</Text>
+              <Text style={[styles.velocityValue, { color: staticColors.textPrimary }]}>{metrics.sell_through_rate || 0}%</Text>
             </View>
           </View>
         )}
@@ -404,10 +486,10 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create({ // Using staticColors for static styles
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: staticColors.background,
   },
   scrollView: {
     flex: 1,
@@ -421,7 +503,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     ...typography.bodySmall,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
     marginTop: space[4],
   },
 
@@ -458,13 +540,13 @@ const styles = StyleSheet.create({
   greeting: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['2xl'],
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     letterSpacing: -0.5,
   },
   date: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
     marginTop: space[1],
   },
   settingsBtn: {
@@ -484,7 +566,7 @@ const styles = StyleSheet.create({
 
   // Hero Card
   heroCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.xl,
     padding: space[5],
     marginBottom: space[4],
@@ -495,7 +577,7 @@ const styles = StyleSheet.create({
   },
   heroDivider: {
     width: 1,
-    backgroundColor: colors.border,
+    backgroundColor: staticColors.border,
     marginHorizontal: space[5],
   },
   heroMetric: {
@@ -504,7 +586,7 @@ const styles = StyleSheet.create({
   heroLabel: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: space[2],
@@ -512,7 +594,7 @@ const styles = StyleSheet.create({
   heroValue: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize['3xl'],
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     letterSpacing: -1,
   },
   heroSubRow: {
@@ -534,7 +616,7 @@ const styles = StyleSheet.create({
   },
   statPill: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.lg,
     paddingVertical: space[3],
     paddingHorizontal: space[2],
@@ -550,12 +632,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
     letterSpacing: -0.3,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
   },
   statPillLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 10,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
     marginTop: 3,
     textAlign: 'center',
   },
@@ -564,12 +646,12 @@ const styles = StyleSheet.create({
   firstItemCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.xl,
     padding: space[4],
     marginBottom: space[5],
     borderWidth: 2,
-    borderColor: colors.brand,
+    borderColor: staticColors.brand,
     borderStyle: 'dashed',
     gap: space[3],
     ...shadows.sm,
@@ -578,7 +660,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: staticColors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -588,13 +670,13 @@ const styles = StyleSheet.create({
   firstItemTitle: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.md,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     marginBottom: 2,
   },
   firstItemDesc: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    color: staticColors.textSecondary,
     lineHeight: 18,
   },
 
@@ -613,14 +695,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     letterSpacing: -0.3,
     marginBottom: space[3],
   },
   seeAll: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.brand,
+    color: staticColors.brand,
   },
 
   // Quick Actions
@@ -634,7 +716,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[3],
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.lg,
     paddingVertical: space[4],
     paddingHorizontal: space[3],
@@ -651,7 +733,7 @@ const styles = StyleSheet.create({
   quickActionLabel: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     flex: 1,
   },
 
@@ -662,7 +744,7 @@ const styles = StyleSheet.create({
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.lg,
     padding: space[3] + 2,
     gap: space[3],
@@ -681,13 +763,13 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.md,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     marginBottom: 2,
   },
   actionMessage: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
   },
   actionProfit: {
     fontFamily: fontFamily.bold,
@@ -698,14 +780,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.brand,
+    backgroundColor: staticColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Empty Actions
   emptyActions: {
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.lg,
     padding: space[8],
     alignItems: 'center',
@@ -715,7 +797,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.successLight,
+    backgroundColor: staticColors.successLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: space[3],
@@ -723,19 +805,19 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.lg,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     marginBottom: space[1],
   },
   emptyText: {
     fontFamily: fontFamily.regular,
     fontSize: fontSize.sm,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
   },
 
   // Velocity Card
   velocityCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: staticColors.surface,
     borderRadius: radius.lg,
     padding: space[4],
     ...shadows.sm,
@@ -743,7 +825,7 @@ const styles = StyleSheet.create({
   velocityLeft: {
     flex: 1,
     borderRightWidth: 1,
-    borderRightColor: colors.border,
+    borderRightColor: staticColors.border,
     paddingRight: space[4],
   },
   velocityRight: {
@@ -753,7 +835,7 @@ const styles = StyleSheet.create({
   velocityLabel: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
-    color: colors.textTertiary,
+    color: staticColors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: space[1],
@@ -761,7 +843,7 @@ const styles = StyleSheet.create({
   velocityValue: {
     fontFamily: fontFamily.bold,
     fontSize: fontSize.xl,
-    color: colors.textPrimary,
+    color: staticColors.textPrimary,
     letterSpacing: -0.5,
   },
 });

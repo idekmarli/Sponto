@@ -130,10 +130,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useTheme() {
-  return useContext(ThemeContext);
+  const context = useContext(ThemeContext);
+  return {
+    ...context,
+    colors: context.theme.colors,
+  };
 }
 
 export function useThemeColors() {
-  const { theme } = useTheme();
+  const { theme } = useContext(ThemeContext);
   return theme.colors;
 }
+
+// Export theme color type for convenience
+export type ThemeColors = typeof themes.warm.colors;

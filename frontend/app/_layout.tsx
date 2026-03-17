@@ -5,17 +5,16 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFonts } from '@expo-google-fonts/dm-sans';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
-import { colors } from '../src/theme';
 import { CurrencyProvider } from '../src/currency';
 import { ThemeProvider, useTheme } from '../src/ThemeContext';
 
 function AppContent() {
-  const { theme, themeId } = useTheme();
+  const { colors, themeId } = useTheme();
   
   return (
     <>
       <StatusBar style={themeId === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.colors.background } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="item/[id]" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -41,7 +40,7 @@ export default function RootLayout() {
   if (!fontsLoaded) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.accent} />
+        <ActivityIndicator size="large" color="#8B7355" />
       </View>
     );
   }
@@ -60,6 +59,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F4F2',
   },
 });

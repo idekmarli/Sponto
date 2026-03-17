@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Linking } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, space, radius, fontFamily, fontSize, spacing, shadows, typography, cardStyles, iconSize } from '../src/theme';
+import { space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
 import { api } from '../src/api';
 import { useCurrency, CURRENCIES } from '../src/currency';
-import { Divider } from '../src/components/UI';
 import { useTheme, themes, ThemeId } from '../src/ThemeContext';
 
 const PLATFORM_NAMES: Record<string, string> = {
@@ -19,74 +18,11 @@ const PLATFORM_NAMES: Record<string, string> = {
   custom: 'Custom',
 };
 
-// Pro Badge Component
-function ProBadge() {
-  return (
-    <View style={styles.proBadge}>
-      <Text style={styles.proBadgeText}>Pro</Text>
-    </View>
-  );
-}
-
-// Section Header
-function SectionHeader({ icon, title, description, iconColor = colors.accent, iconBg = colors.surfaceWarm }: {
-  icon: string; title: string; description?: string; iconColor?: string; iconBg?: string;
-}) {
-  return (
-    <View style={styles.sectionHeader}>
-      <View style={[styles.sectionIconWrap, { backgroundColor: iconBg }]}>
-        <Feather name={icon as any} size={iconSize.sm} color={iconColor} />
-      </View>
-      <View style={styles.sectionHeaderText}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        {description && <Text style={styles.sectionDesc}>{description}</Text>}
-      </View>
-    </View>
-  );
-}
-
-// Setting Row
-function SettingRow({ label, value, onPress, showArrow = true, rightElement }: {
-  label: string; value?: string; onPress?: () => void; showArrow?: boolean; rightElement?: React.ReactNode;
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.settingRow}
-      onPress={onPress}
-      disabled={!onPress}
-      activeOpacity={onPress ? 0.6 : 1}
-    >
-      <Text style={styles.settingLabel}>{label}</Text>
-      {rightElement || (
-        <View style={styles.settingRight}>
-          {value && <Text style={styles.settingValue}>{value}</Text>}
-          {showArrow && onPress && <Feather name="chevron-right" size={16} color={colors.textMuted} />}
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-// Coming Soon Row
-function ComingSoonRow({ label, description }: { label: string; description?: string }) {
-  return (
-    <View style={styles.comingSoonRow}>
-      <View style={styles.comingSoonLeft}>
-        <Text style={styles.settingLabel}>{label}</Text>
-        {description && <Text style={styles.comingSoonDesc}>{description}</Text>}
-      </View>
-      <View style={styles.comingSoonBadge}>
-        <Text style={styles.comingSoonText}>Coming Soon</Text>
-      </View>
-    </View>
-  );
-}
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { currency, setCurrency } = useCurrency();
-  const { themeId, setTheme } = useTheme();
+  const { themeId, setTheme, colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [platformFees, setPlatformFees] = useState<Record<string, string>>({});
@@ -94,7 +30,9 @@ export default function SettingsScreen() {
   const [minProfit, setMinProfit] = useState('');
   const [minMargin, setMinMargin] = useState('');
   const [staleDays, setStaleDays] = useState('');
-  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+
+  // Create dynamic styles based on current theme
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -128,6 +66,42 @@ export default function SettingsScreen() {
     }
   };
 
+  // Section Header Component
+  const SectionHeader = ({ icon, title, description, iconColor, iconBg }: {
+    icon: string; title: string; description?: string; iconColor?: string; iconBg?: string;
+  }) => (
+    <View style={styles.sectionHeader}>
+      <View style={[styles.sectionIconWrap, { backgroundColor: iconBg || colors.surfaceMuted }]}>
+        <Feather name={icon as any} size={16} color={iconColor || colors.textSecondary} />
+      </View>
+      <View style={styles.sectionHeaderText}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {description && <Text style={styles.sectionDesc}>{description}</Text>}
+      </View>
+    </View>
+  );
+
+  // Setting Row Component
+  const SettingRow = ({ label, value, onPress, showArrow = true }: {
+    label: string; value?: string; onPress?: () => void; showArrow?: boolean;
+  }) => (
+    <TouchableOpacity
+      style={styles.settingRow}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.6 : 1}
+    >
+      <Text style={styles.settingLabel}>{label}</Text>
+      <View style={styles.settingRight}>
+        {value && <Text style={styles.settingValue}>{value}</Text>}
+        {showArrow && onPress && <Feather name="chevron-right" size={16} color={colors.textMuted} />}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Divider Component
+  const Divider = () => <View style={styles.divider} />;
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -147,43 +121,12 @@ export default function SettingsScreen() {
     >
       {/* Header */}
       <TouchableOpacity testID="back-btn" onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
-        <Feather name="arrow-left" size={iconSize.md} color={colors.textPrimary} />
+        <Feather name="arrow-left" size={20} color={colors.textPrimary} />
       </TouchableOpacity>
 
       <View style={styles.header}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Business configuration</Text>
-      </View>
-
-      {/* ─── CURRENCY ─── */}
-      <View style={styles.section}>
-        <SectionHeader 
-          icon="globe" 
-          title="Currency" 
-          description="Select your preferred currency"
-          iconColor={colors.info}
-          iconBg={colors.infoLight}
-        />
-        <View style={cardStyles.base}>
-          {Object.values(CURRENCIES).map((curr, i) => (
-            <TouchableOpacity
-              key={curr.code}
-              style={[styles.currencyRow, i > 0 && styles.currencyRowBorder]}
-              onPress={() => setCurrency(curr.code)}
-              activeOpacity={0.6}
-            >
-              <View style={styles.currencyInfo}>
-                <Text style={styles.currencySymbol}>{curr.symbol}</Text>
-                <Text style={styles.currencyName}>{curr.name}</Text>
-              </View>
-              {currency.code === curr.code && (
-                <View style={styles.checkmark}>
-                  <Feather name="check" size={16} color={colors.success} />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
       </View>
 
       {/* ─── THEME ─── */}
@@ -192,8 +135,8 @@ export default function SettingsScreen() {
           icon="moon" 
           title="Theme" 
           description="Choose your color theme"
-          iconColor="#A78BFA"
-          iconBg="#EDE9FE"
+          iconColor={colors.accent}
+          iconBg={colors.surfaceMuted}
         />
         <View style={styles.themeGrid}>
           {(Object.keys(themes) as ThemeId[]).map((id) => {
@@ -223,29 +166,67 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* ─── CURRENCY ─── */}
+      <View style={styles.section}>
+        <SectionHeader 
+          icon="globe" 
+          title="Currency" 
+          description="Select your preferred currency"
+          iconColor={colors.textSecondary}
+          iconBg={colors.surfaceMuted}
+        />
+        <View style={styles.card}>
+          {Object.values(CURRENCIES).map((curr, i) => (
+            <React.Fragment key={curr.code}>
+              {i > 0 && <Divider />}
+              <TouchableOpacity
+                style={styles.currencyRow}
+                onPress={() => setCurrency(curr.code)}
+                activeOpacity={0.6}
+              >
+                <View style={styles.currencyInfo}>
+                  <Text style={styles.currencySymbol}>{curr.symbol}</Text>
+                  <Text style={styles.currencyName}>{curr.name}</Text>
+                </View>
+                {currency.code === curr.code && (
+                  <View style={styles.checkmark}>
+                    <Feather name="check" size={16} color={colors.success} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
+        </View>
+      </View>
+
       {/* ─── PLATFORMS & FEES ─── */}
       <View style={styles.section}>
         <SectionHeader 
           icon="percent" 
           title="Platforms & Fees" 
           description="Platform fee rates for profit calculation"
+          iconColor={colors.accent}
+          iconBg={colors.surfaceMuted}
         />
-        <View style={cardStyles.base}>
+        <View style={styles.card}>
           {Object.entries(platformFees).map(([key, value], i) => (
-            <View key={key} style={[styles.feeRow, i > 0 && styles.feeRowBorder]}>
-              <Text style={styles.feeLabel}>{PLATFORM_NAMES[key] || key}</Text>
-              <View style={styles.feeInputWrap}>
-                <TextInput
-                  style={styles.feeInput}
-                  value={value}
-                  onChangeText={(v) => setPlatformFees(prev => ({ ...prev, [key]: v }))}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <Text style={styles.feePercent}>%</Text>
+            <React.Fragment key={key}>
+              {i > 0 && <Divider />}
+              <View style={styles.feeRow}>
+                <Text style={styles.feeLabel}>{PLATFORM_NAMES[key] || key}</Text>
+                <View style={styles.feeInputWrap}>
+                  <TextInput
+                    style={styles.feeInput}
+                    value={value}
+                    onChangeText={(v) => setPlatformFees(prev => ({ ...prev, [key]: v }))}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  <Text style={styles.feePercent}>%</Text>
+                </View>
               </View>
-            </View>
+            </React.Fragment>
           ))}
         </View>
       </View>
@@ -256,8 +237,10 @@ export default function SettingsScreen() {
           icon="sliders" 
           title="Business Rules" 
           description="Targets for sourcing decisions and alerts"
+          iconColor={colors.textSecondary}
+          iconBg={colors.surfaceMuted}
         />
-        <View style={cardStyles.base}>
+        <View style={styles.card}>
           <View style={styles.ruleRow}>
             <View style={styles.ruleInfo}>
               <Text style={styles.ruleLabel}>Target ROI</Text>
@@ -332,62 +315,6 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* ─── RESELLR PRO ─── */}
-      <View style={styles.section}>
-        <View style={styles.proSectionHeader}>
-          <SectionHeader 
-            icon="zap" 
-            title="Resellr Pro" 
-            iconColor={colors.pro}
-            iconBg={colors.proLight}
-          />
-          <ProBadge />
-        </View>
-        <View style={[cardStyles.pro, styles.proCardCompact]}>
-          <View style={styles.proFeatureRow}>
-            <View style={styles.proFeatureIcon}>
-              <Feather name="link" size={16} color={colors.pro} />
-            </View>
-            <View style={styles.proFeatureContent}>
-              <Text style={styles.proFeatureTitle}>Marketplace Sync</Text>
-              <Text style={styles.proFeatureDesc}>Connect eBay, Depop, and more</Text>
-            </View>
-            <View style={styles.proFeatureLock}>
-              <Feather name="lock" size={14} color={colors.textMuted} />
-            </View>
-          </View>
-          <Divider />
-          <View style={styles.proFeatureRow}>
-            <View style={styles.proFeatureIcon}>
-              <Feather name="download" size={16} color={colors.pro} />
-            </View>
-            <View style={styles.proFeatureContent}>
-              <Text style={styles.proFeatureTitle}>Export & Reports</Text>
-              <Text style={styles.proFeatureDesc}>CSV, Excel, monthly summaries</Text>
-            </View>
-            <View style={styles.proFeatureLock}>
-              <Feather name="lock" size={14} color={colors.textMuted} />
-            </View>
-          </View>
-          <Divider />
-          <View style={styles.proFeatureRow}>
-            <View style={styles.proFeatureIcon}>
-              <Feather name="trending-up" size={16} color={colors.pro} />
-            </View>
-            <View style={styles.proFeatureContent}>
-              <Text style={styles.proFeatureTitle}>Advanced Analytics</Text>
-              <Text style={styles.proFeatureDesc}>Profit predictions, market insights</Text>
-            </View>
-            <View style={styles.proFeatureLock}>
-              <Feather name="lock" size={14} color={colors.textMuted} />
-            </View>
-          </View>
-        </View>
-        <Text style={styles.proNote}>
-          Pro features are coming soon. Your app will be upgraded automatically.
-        </Text>
-      </View>
-
       {/* ─── PRIVACY & LEGAL ─── */}
       <View style={styles.section}>
         <SectionHeader 
@@ -396,7 +323,7 @@ export default function SettingsScreen() {
           iconColor={colors.textTertiary}
           iconBg={colors.surfaceMuted}
         />
-        <View style={cardStyles.base}>
+        <View style={styles.card}>
           <SettingRow 
             label="Privacy Policy" 
             onPress={() => Alert.alert('Privacy Policy', 'Privacy policy will be available here.')}
@@ -448,7 +375,8 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+// Dynamic styles factory function
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -461,7 +389,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    ...typography.bodySmall,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
     marginTop: space[4],
   },
@@ -481,11 +410,15 @@ const styles = StyleSheet.create({
     marginBottom: space[8],
   },
   title: {
-    ...typography.h1,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['3xl'],
+    letterSpacing: -0.8,
+    color: colors.textPrimary,
     marginBottom: space[1],
   },
   subtitle: {
-    ...typography.body,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
     color: colors.textSecondary,
   },
 
@@ -510,11 +443,78 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    ...typography.h4,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.lg,
+    color: colors.textPrimary,
   },
   sectionDesc: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
     marginTop: 2,
+  },
+
+  // Card
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+
+  // Divider
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.divider,
+  },
+
+  // Theme Grid
+  themeGrid: {
+    flexDirection: 'row',
+    gap: space[3],
+  },
+  themeCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: space[3],
+    borderWidth: 2,
+    borderColor: 'transparent',
+    position: 'relative',
+    ...shadows.sm,
+  },
+  themeCardSelected: {
+    borderColor: colors.brand,
+  },
+  themePreview: {
+    flexDirection: 'row',
+    height: 32,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    marginBottom: space[2],
+  },
+  themePreviewColor: {
+    flex: 1,
+  },
+  themeName: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  themeNameSelected: {
+    color: colors.textPrimary,
+  },
+  themeCheck: {
+    position: 'absolute',
+    top: space[2],
+    right: space[2],
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Currency
@@ -524,10 +524,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: space[4],
     paddingHorizontal: space[4],
-  },
-  currencyRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
   },
   currencyInfo: {
     flexDirection: 'row',
@@ -541,7 +537,8 @@ const styles = StyleSheet.create({
     width: 32,
   },
   currencyName: {
-    ...typography.body,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
   },
   checkmark: {
@@ -561,12 +558,9 @@ const styles = StyleSheet.create({
     paddingVertical: space[3] + 2,
     paddingHorizontal: space[4],
   },
-  feeRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
   feeLabel: {
-    ...typography.label,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
   feeInputWrap: {
@@ -583,7 +577,8 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   feePercent: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
 
@@ -599,11 +594,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   ruleLabel: {
-    ...typography.label,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
   ruleDesc: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
     marginTop: 2,
   },
   ruleInputWrap: {
@@ -629,112 +627,12 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   rulePercent: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
   ruleSuffix: {
-    ...typography.caption,
-    color: colors.textTertiary,
-  },
-
-  // Pro Section
-  proSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 0,
-  },
-  proBadge: {
-    backgroundColor: colors.pro,
-    paddingHorizontal: space[2] + 2,
-    paddingVertical: space[1],
-    borderRadius: radius.sm,
-  },
-  proBadgeText: {
-    fontFamily: fontFamily.bold,
-    fontSize: fontSize.xs,
-    color: colors.textInverse,
-    letterSpacing: 0.3,
-  },
-  proDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: space[2],
-    marginBottom: space[3],
-  },
-  proCard: {
-    overflow: 'hidden',
-  },
-  proCardCompact: {
-    overflow: 'hidden',
-  },
-  proFeatureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: space[4],
-    paddingHorizontal: space[4],
-    gap: space[3],
-  },
-  proFeatureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.proLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  proFeatureContent: {
-    flex: 1,
-  },
-  proFeatureTitle: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.md,
-    color: colors.textPrimary,
-  },
-  proFeatureDesc: {
     fontFamily: fontFamily.regular,
-    fontSize: fontSize.sm,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  proFeatureLock: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  proNote: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    marginTop: space[3],
-    fontStyle: 'italic',
-  },
-
-  // Coming Soon Row
-  comingSoonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: space[4],
-    paddingHorizontal: space[4],
-  },
-  comingSoonLeft: {
-    flex: 1,
-  },
-  comingSoonDesc: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  comingSoonBadge: {
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: space[2] + 2,
-    paddingVertical: space[1],
-    borderRadius: radius.sm,
-  },
-  comingSoonText: {
-    fontFamily: fontFamily.medium,
     fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
@@ -748,7 +646,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
   },
   settingLabel: {
-    ...typography.label,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
   settingRight: {
@@ -757,13 +656,15 @@ const styles = StyleSheet.create({
     gap: space[2],
   },
   settingValue: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
 
   // Legal Note
   legalNote: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
     marginTop: space[3],
     fontStyle: 'italic',
@@ -789,7 +690,8 @@ const styles = StyleSheet.create({
 
   // Version
   version: {
-    ...typography.caption,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: space[6],
