@@ -176,6 +176,7 @@ export default function AddFromScreenshotScreen() {
   // Cropper state
   const [showCropper, setShowCropper] = useState(false);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [originalFileUri, setOriginalFileUri] = useState<string | null>(null);
 
   // Pick images
   const pickImages = async () => {
@@ -184,7 +185,7 @@ export default function AddFromScreenshotScreen() {
       
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsMultipleSelection: false, // Single image for better UX
+        allowsMultipleSelection: false,
         quality: 0.8,
         base64: true,
       });
@@ -197,8 +198,12 @@ export default function AddFromScreenshotScreen() {
           return;
         }
         
-        const imageUri = `data:image/jpeg;base64,${asset.base64}`;
-        setSelectedImages([imageUri]);
+        // Store both the file URI (for cropping) and base64 (for display/analysis)
+        const base64Uri = `data:image/jpeg;base64,${asset.base64}`;
+        setSelectedImages([base64Uri]);
+        
+        // Store the original file URI for cropping (needed on iOS)
+        setOriginalFileUri(asset.uri);
         
         // Show crop option first before analysis
         setShowCropper(true);
@@ -635,10 +640,10 @@ export default function AddFromScreenshotScreen() {
         )}
         
         {/* Image Cropper Modal */}
-        {selectedImages[0] && (
+        {(selectedImages[0] || originalFileUri) && (
           <ImageCropper
             visible={showCropper}
-            imageUri={selectedImages[0]}
+            imageUri={originalFileUri || selectedImages[0]}
             onClose={() => setShowCropper(false)}
             onCrop={handleCrop}
           />

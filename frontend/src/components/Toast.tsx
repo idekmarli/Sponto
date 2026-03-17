@@ -9,7 +9,7 @@ interface ToastProps {
   visible: boolean;
   message: string;
   type?: 'success' | 'error' | 'info';
-  onHide: () => void;
+  onHide?: () => void;
   duration?: number;
 }
 
@@ -29,12 +29,16 @@ export function Toast({ visible, message, type = 'success', onHide, duration = 2
         Animated.parallel([
           Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
           Animated.timing(translateY, { toValue: -20, duration: 200, useNativeDriver: true }),
-        ]).start(() => onHide());
+        ]).start(() => {
+          if (onHide && typeof onHide === 'function') {
+            onHide();
+          }
+        });
       }, duration);
 
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, duration, onHide]);
 
   if (!visible) return null;
 
