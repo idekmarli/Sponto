@@ -192,20 +192,6 @@ export default function InsightsScreen() {
           <Text style={styles.title}>Insights</Text>
           <Text style={styles.subtitle}>Business performance</Text>
         </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={styles.exportBtn} 
-            onPress={handleExportInventory}
-            disabled={exporting}
-            activeOpacity={0.7}
-          >
-            {exporting ? (
-              <ActivityIndicator size="small" color={colors.textSecondary} />
-            ) : (
-              <Feather name="download" size={18} color={colors.textSecondary} />
-            )}
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Export Options */}
@@ -217,13 +203,10 @@ export default function InsightsScreen() {
           activeOpacity={0.7}
         >
           <View style={styles.exportCardIcon}>
-            <Feather name="package" size={18} color={colors.brand} />
+            <Feather name="package" size={16} color={colors.brand} />
           </View>
-          <View style={styles.exportCardContent}>
-            <Text style={styles.exportCardTitle}>Export Inventory</Text>
-            <Text style={styles.exportCardDesc}>All items with full details</Text>
-          </View>
-          <Feather name="download" size={16} color={colors.textTertiary} />
+          <Text style={styles.exportCardTitle}>Export Inventory</Text>
+          <Feather name="download" size={14} color={colors.textTertiary} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.exportCard} 
@@ -232,13 +215,10 @@ export default function InsightsScreen() {
           activeOpacity={0.7}
         >
           <View style={[styles.exportCardIcon, { backgroundColor: colors.successLight }]}>
-            <Feather name="dollar-sign" size={18} color={colors.success} />
+            <Feather name="trending-up" size={16} color={colors.success} />
           </View>
-          <View style={styles.exportCardContent}>
-            <Text style={styles.exportCardTitle}>Export Sales</Text>
-            <Text style={styles.exportCardDesc}>Sold items with profit data</Text>
-          </View>
-          <Feather name="download" size={16} color={colors.textTertiary} />
+          <Text style={styles.exportCardTitle}>Export Sales</Text>
+          <Feather name="download" size={14} color={colors.textTertiary} />
         </TouchableOpacity>
       </View>
 
@@ -449,23 +429,7 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     marginBottom: space[5],
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: space[2],
-  },
-  exportBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.xs,
   },
   title: {
     fontFamily: fontFamily.bold,
@@ -484,39 +448,32 @@ const styles = StyleSheet.create({
   exportSection: {
     flexDirection: 'row',
     gap: space[3],
-    marginBottom: space[6],
+    marginBottom: space[5],
   },
   exportCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space[3],
+    gap: space[2],
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
-    padding: space[3],
+    paddingVertical: space[3],
+    paddingHorizontal: space[3],
     ...shadows.xs,
   },
   exportCardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  exportCardContent: {
-    flex: 1,
-  },
   exportCardTitle: {
+    flex: 1,
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.textPrimary,
-  },
-  exportCardDesc: {
-    fontFamily: fontFamily.regular,
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-    marginTop: 1,
   },
 
   // Metrics Grid
