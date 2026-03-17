@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -33,9 +33,10 @@ const STAGES = [
 ];
 
 // Pipeline Item Card - Enhanced with price, profit, and photo
-function PipelineCard({ item, onPress, onAdvance, currentStage }: { 
+function PipelineCard({ item, onPress, onLongPress, onAdvance, currentStage }: { 
   item: any; 
-  onPress: () => void; 
+  onPress: () => void;
+  onLongPress: () => void;
   onAdvance: () => void;
   currentStage: string;
 }) {
@@ -56,6 +57,8 @@ function PipelineCard({ item, onPress, onAdvance, currentStage }: {
       testID={`pipeline-item-${item.id}`}
       style={styles.pipeCard}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       activeOpacity={0.6}
     >
       {/* Photo */}
@@ -122,6 +125,11 @@ export default function PipelineScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
+  
+  // Quick Move Modal state
+  const [quickMoveItem, setQuickMoveItem] = useState<any | null>(null);
+  const [quickMoveStage, setQuickMoveStage] = useState<string>('');
+  const [moving, setMoving] = useState(false);
 
   const fetchPipeline = useCallback(async () => {
     try {
@@ -155,6 +163,31 @@ export default function PipelineScreen() {
       console.error(e);
       setToast({ visible: true, message: 'Failed to update', type: 'error' });
     }
+  };
+
+  // Quick move to any stage
+  const quickMoveToStage = async (newStage: string) => {
+    if (!quickMoveItem || moving) return;
+    setMoving(true);
+    
+    try {
+      await api.updateItem(quickMoveItem.id, { status: newStage });
+      const stageLabel = STAGES.find(s => s.key === newStage)?.key || newStage;
+      setToast({ visible: true, message: `Moved to ${stageLabel}`, type: 'success' });
+      setQuickMoveItem(null);
+      fetchPipeline();
+    } catch (e) {
+      console.error(e);
+      setToast({ visible: true, message: 'Failed to move item', type: 'error' });
+    } finally {
+      setMoving(false);
+    }
+  };
+
+  // Open Quick Move Modal
+  const openQuickMove = (item: any, currentStage: string) => {
+    setQuickMoveItem(item);
+    setQuickMoveStage(currentStage);
   };
 
   useEffect(() => {
@@ -268,6 +301,7 @@ export default function PipelineScreen() {
                   item={item}
                   currentStage={stage.key}
                   onPress={() => router.push(`/item/${item.id}`)}
+                  onLongPress={() => openQuickMove(item, stage.key)}
                   onAdvance={() => advanceItem(item, stage.key)}
                 />
               ))}
@@ -277,6 +311,71 @@ export default function PipelineScreen() {
       })}
 
       <View style={{ height: space[8] }} />
+
+      {/* Quick Move Modal */}
+      <Modal
+        visible={!!quickMoveItem}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setQuickMoveItem(null)}
+      >
+        <Pressable style={styles.quickMoveOverlay} onPress={() => setQuickMoveItem(null)}>
+          <Pressable style={styles.quickMoveContainer} onPress={() => {}}>
+            {/* Header */}
+            <View style={styles.quickMoveHeader}>
+              <View>
+                <Text style={styles.quickMoveTitle}>Move to Stage</Text>
+                <Text style={styles.quickMoveItemName} numberOfLines={1}>
+                  {quickMoveItem?.title}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setQuickMoveItem(null)} style={styles.quickMoveClose}>
+                <Feather name="x" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Stage Options */}
+            <View style={styles.quickMoveStages}>
+              {STAGES.map((stage) => {
+                const isCurrent = stage.key === quickMoveStage;
+                return (
+                  <TouchableOpacity
+                    key={stage.key}
+                    style={[
+                      styles.quickMoveStageBtn,
+                      isCurrent && styles.quickMoveStageBtnCurrent,
+                    ]}
+                    onPress={() => !isCurrent && quickMoveToStage(stage.key)}
+                    disabled={isCurrent || moving}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.quickMoveStageIcon, { backgroundColor: stage.color + '20' }]}>
+                      <Feather name={stage.icon as any} size={16} color={stage.color} />
+                    </View>
+                    <Text style={[
+                      styles.quickMoveStageName,
+                      isCurrent && styles.quickMoveStageNameCurrent,
+                    ]}>
+                      {statusConfig[stage.key]?.label || stage.key}
+                    </Text>
+                    {isCurrent && (
+                      <View style={styles.currentBadge}>
+                        <Text style={styles.currentBadgeText}>Current</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Hint */}
+            <View style={styles.quickMoveHint}>
+              <Feather name="info" size={12} color={colors.textMuted} />
+              <Text style={styles.quickMoveHintText}>Long-press any card to move it quickly</Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Toast
         visible={toast.visible}
@@ -512,5 +611,107 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Quick Move Modal
+  quickMoveOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  quickMoveContainer: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingTop: space[4],
+    paddingBottom: space[8],
+    maxHeight: '80%',
+  },
+  quickMoveHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: spacing.screenPadding,
+    marginBottom: space[4],
+  },
+  quickMoveTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textPrimary,
+    marginBottom: space[1],
+  },
+  quickMoveItemName: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    maxWidth: 250,
+  },
+  quickMoveClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickMoveStages: {
+    paddingHorizontal: spacing.screenPadding,
+    gap: space[2],
+  },
+  quickMoveStageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+  },
+  quickMoveStageBtnCurrent: {
+    backgroundColor: colors.surfaceMuted,
+    opacity: 0.7,
+  },
+  quickMoveStageIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickMoveStageName: {
+    flex: 1,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+  },
+  quickMoveStageNameCurrent: {
+    color: colors.textTertiary,
+  },
+  currentBadge: {
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  currentBadgeText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+  },
+  quickMoveHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    marginTop: space[4],
+    paddingTop: space[4],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    marginHorizontal: spacing.screenPadding,
+  },
+  quickMoveHintText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
   },
 });
