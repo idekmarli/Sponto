@@ -608,6 +608,14 @@ async def get_dashboard():
     # Average margin on sold
     margins = [i.get("margin", 0) for i in sold_all if i.get("margin", 0) != 0]
     avg_margin = round(sum(margins) / len(margins), 1) if margins else 0
+    
+    # Average ROI on profitable sales (more meaningful metric)
+    profitable_rois = [i.get("roi", 0) for i in sold_all if i.get("roi", 0) > 0]
+    avg_roi = round(sum(profitable_rois) / len(profitable_rois), 1) if profitable_rois else 0
+    
+    # Overall ROI for the month (total profit / total cost)
+    total_cost = sum(i.get("purchase_price", 0) for i in sold_this_month)
+    monthly_roi = round((monthly_profit / total_cost * 100), 1) if total_cost > 0 else 0
 
     # Dead stock count
     dead_stock_count = len([i for i in active_listings if i.get("days_listed", 0) >= 60])
@@ -670,6 +678,8 @@ async def get_dashboard():
         "sell_through_rate": sell_through,
         "profit_velocity": profit_velocity,
         "avg_margin": avg_margin,
+        "avg_roi": avg_roi,
+        "monthly_roi": monthly_roi,
         "inventory_age": age_dist,
         "best_platform": best_platform,
         "best_category": best_category,

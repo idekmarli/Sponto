@@ -243,7 +243,7 @@ export default function HomeScreen() {
     total_listed: d.active_listings || 0,
     total_stale: d.stale_count || 0,
     dead_stock_count: d.dead_stock_count || 0,
-    avg_roi: d.avg_margin || 0,
+    avg_roi: d.avg_roi || d.monthly_roi || 0,
     avg_days_to_sell: Math.round((d.sell_through_rate || 0) > 0 ? 30 : 0),
     sell_through_rate: d.sell_through_rate || 0,
   };
