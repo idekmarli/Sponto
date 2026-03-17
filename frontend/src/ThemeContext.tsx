@@ -6,14 +6,14 @@ export const themes = {
   // Default - Warm neutral (current)
   warm: {
     id: 'warm',
-    name: 'Warm Sand',
-    preview: ['#F5F4F2', '#8B7355', '#27272A'],
+    name: 'Sage',
+    preview: ['#F5F4F2', '#6B9B7A', '#27272A'],
     colors: {
       background: '#F5F4F2',
       surface: '#FFFFFF',
       surfaceMuted: '#EDEBE8',
-      brand: '#8B7355',
-      brandLight: '#A89078',
+      brand: '#6B9B7A',
+      brandLight: '#8AB89A',
       accent: '#27272A',
       accentLight: '#3F3F46',
       textPrimary: '#1C1917',
