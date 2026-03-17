@@ -29,5 +29,6 @@ export const api = {
   getSettings: () => request('/settings'),
   updateSettings: (data: any) => request('/settings', { method: 'PUT', body: JSON.stringify(data) }),
   sourceCalculate: (data: any) => request('/source/calculate', { method: 'POST', body: JSON.stringify(data) }),
+  analyzeScreenshot: (images: string[]) => request('/analyze-screenshot', { method: 'POST', body: JSON.stringify({ images }) }),
   seed: () => request('/seed', { method: 'POST' }),
 };

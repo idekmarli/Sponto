@@ -10,6 +10,17 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import math
+import re
+import base64
+from io import BytesIO
+
+# OCR imports
+try:
+    import pytesseract
+    from PIL import Image
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -94,6 +105,21 @@ class SourceCalcRequest(BaseModel):
     prep_cost: float = 0
     packaging_cost: float = 0
     category: str = ""
+
+class ScreenshotAnalysisRequest(BaseModel):
+    images: List[str]  # Base64 encoded images
+
+class ExtractedField(BaseModel):
+    value: str
+    confidence: str  # "high", "medium", "low"
+    
+class ScreenshotAnalysisResponse(BaseModel):
+    success: bool
+    extracted_data: Dict[str, Any]
+    raw_text: str
+    detected_platform: Optional[str]
+    product_image: Optional[str]  # Base64 cropped product image
+    original_screenshot: str  # Keep original for reference
 
 # ─── Helpers ───
 
@@ -793,6 +819,286 @@ async def source_calculate(req: SourceCalcRequest):
         "profit_per_day": profit_per_day,
         "platform_context": platform_context,
         "category_context": cat_context,
+    }
+
+
+# ─── Screenshot Analysis (OCR) ───
+
+def detect_platform(text: str) -> tuple[Optional[str], str]:
+    """Detect which marketplace platform the screenshot is from"""
+    text_lower = text.lower()
+    
+    platform_indicators = {
+        "vinted": ["vinted", "vendeur", "protection acheteur", "en voir plus"],
+        "depop": ["depop", "buy now", "make offer", "sold by", "bundle discount"],
+        "ebay": ["ebay", "buy it now", "add to cart", "place bid", "seller information", "item condition"],
+        "poshmark": ["poshmark", "posh protect", "add to bundle", "authenticate"],
+        "vestiaire": ["vestiaire", "authenticity check", "direct shipping"],
+        "etsy": ["etsy", "add to basket", "handmade", "vintage"],
+        "mercari": ["mercari", "smart pay", "shipping protection"],
+        "grailed": ["grailed", "send offer", "sold out"],
+    }
+    
+    for platform, indicators in platform_indicators.items():
+        matches = sum(1 for ind in indicators if ind in text_lower)
+        if matches >= 1:
+            confidence = "high" if matches >= 2 else "medium"
+            return platform, confidence
+    
+    return None, "low"
+
+def extract_price(text: str) -> tuple[Optional[float], str]:
+    """Extract price from OCR text"""
+    # Common price patterns
+    patterns = [
+        r'[\$\£\€]\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # $199, £199.99, €1,999
+        r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*[\$\£\€]',  # 199$, 199.99€
+        r'(?:price|prix|preis|prijs)[\s:]*[\$\£\€]?\s*(\d+(?:\.\d{2})?)',  # Price: $199
+        r'(?:asking|listed|for sale)[\s:]*[\$\£\€]?\s*(\d+(?:\.\d{2})?)',
+        r'\b(\d{2,4}(?:\.\d{2})?)\s*(?:incl|including|free ship)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            price_str = match.group(1).replace(',', '')
+            try:
+                price = float(price_str)
+                if 1 < price < 50000:  # Reasonable price range
+                    return price, "high"
+            except ValueError:
+                continue
+    
+    # Fallback: find any number that looks like a price
+    numbers = re.findall(r'\b(\d{2,4}(?:\.\d{2})?)\b', text)
+    for num in numbers:
+        try:
+            price = float(num)
+            if 5 < price < 10000:
+                return price, "low"
+        except ValueError:
+            continue
+    
+    return None, "low"
+
+def extract_brand(text: str) -> tuple[Optional[str], str]:
+    """Extract brand name from OCR text"""
+    known_brands = [
+        "Acne Studios", "A.P.C.", "Jacquemus", "Lemaire", "Our Legacy", "Margaret Howell",
+        "Isabel Marant", "Dries Van Noten", "Maison Margiela", "Balenciaga", "Gucci",
+        "Prada", "Louis Vuitton", "Hermès", "Chanel", "Nike", "Adidas", "New Balance",
+        "Carhartt", "Stüssy", "Supreme", "Off-White", "Stone Island", "Burberry",
+        "Ralph Lauren", "Tommy Hilfiger", "Levi's", "Zara", "H&M", "Uniqlo",
+        "COS", "& Other Stories", "Arket", "Toteme", "The Row", "Bottega Veneta",
+        "Celine", "Saint Laurent", "Loewe", "Miu Miu", "Fendi", "Valentino",
+        "Alexander McQueen", "Jil Sander", "Rick Owens", "Comme des Garçons",
+    ]
+    
+    text_lower = text.lower()
+    for brand in known_brands:
+        if brand.lower() in text_lower:
+            return brand, "high"
+    
+    # Try to find capitalized words that might be brands
+    potential_brands = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b', text)
+    if potential_brands:
+        # Filter out common non-brand words
+        skip_words = {"Size", "Color", "Condition", "Description", "Shipping", "Price", "Buy", "Sell", "New", "Used"}
+        for brand in potential_brands:
+            if brand not in skip_words and len(brand) > 2:
+                return brand, "low"
+    
+    return None, "low"
+
+def extract_size(text: str) -> tuple[Optional[str], str]:
+    """Extract size from OCR text"""
+    # Size patterns
+    patterns = [
+        r'(?:size|sz|taille)[\s:]*([XSMLXL]{1,3}|\d{1,2}|[0-9]{1,2}[/-][0-9]{1,2})',
+        r'\b(XXS|XS|S|M|L|XL|XXL|XXXL)\b',
+        r'\b(UK\s*\d{1,2}|US\s*\d{1,2}|EU\s*\d{1,2})\b',
+        r'\b(\d{1,2})\s*(?:UK|US|EU)\b',
+        r'(?:waist|chest|length)[\s:]*(\d{1,2})',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1).upper(), "high"
+    
+    return None, "low"
+
+def extract_condition(text: str) -> tuple[Optional[str], str]:
+    """Extract condition from OCR text"""
+    text_lower = text.lower()
+    
+    condition_map = {
+        "new with tags": ["new with tags", "nwt", "bnwt", "brand new"],
+        "new without tags": ["new without tags", "nwot", "new no tags"],
+        "like new": ["like new", "mint", "excellent", "pristine", "as new"],
+        "good": ["good condition", "very good", "gently used", "great condition"],
+        "fair": ["fair condition", "some wear", "visible wear", "used"],
+        "poor": ["poor condition", "well worn", "needs repair"],
+    }
+    
+    for condition, indicators in condition_map.items():
+        for ind in indicators:
+            if ind in text_lower:
+                return condition, "high"
+    
+    return None, "low"
+
+def extract_title(text: str, brand: Optional[str]) -> tuple[Optional[str], str]:
+    """Extract or construct a title from the text"""
+    lines = [line.strip() for line in text.split('\n') if line.strip() and len(line.strip()) > 3]
+    
+    if lines:
+        # First non-trivial line is often the title
+        for line in lines[:5]:
+            # Skip lines that are just prices or sizes
+            if re.match(r'^[\$\£\€]?\d+(?:\.\d{2})?$', line):
+                continue
+            if len(line) < 50 and len(line) > 5:
+                return line, "medium"
+    
+    return None, "low"
+
+def extract_category(text: str) -> tuple[Optional[str], str]:
+    """Extract category from text"""
+    text_lower = text.lower()
+    
+    category_keywords = {
+        "Bags": ["bag", "handbag", "tote", "clutch", "backpack", "crossbody", "purse", "satchel"],
+        "Dresses": ["dress", "gown", "maxi", "midi", "mini dress"],
+        "Tops": ["top", "shirt", "blouse", "t-shirt", "tee", "sweater", "jumper", "hoodie", "cardigan"],
+        "Outerwear": ["jacket", "coat", "blazer", "parka", "vest", "gilet", "puffer"],
+        "Bottoms": ["pants", "trousers", "jeans", "shorts", "skirt"],
+        "Footwear": ["shoes", "boots", "sneakers", "trainers", "heels", "sandals", "loafers"],
+        "Accessories": ["scarf", "hat", "belt", "sunglasses", "jewelry", "watch", "wallet"],
+        "Knitwear": ["knit", "sweater", "cardigan", "pullover", "jumper"],
+    }
+    
+    for category, keywords in category_keywords.items():
+        for keyword in keywords:
+            if keyword in text_lower:
+                return category, "high"
+    
+    return None, "low"
+
+def extract_color(text: str) -> tuple[Optional[str], str]:
+    """Extract color from text"""
+    colors = [
+        "black", "white", "grey", "gray", "navy", "blue", "red", "green", "brown",
+        "beige", "cream", "pink", "purple", "orange", "yellow", "gold", "silver",
+        "burgundy", "olive", "tan", "camel", "khaki", "charcoal", "ivory", "coral",
+    ]
+    
+    text_lower = text.lower()
+    for color in colors:
+        if re.search(r'\b' + color + r'\b', text_lower):
+            return color.capitalize(), "medium"
+    
+    return None, "low"
+
+def analyze_screenshot_ocr(image_base64: str) -> Dict[str, Any]:
+    """Perform OCR and extract structured data from a screenshot"""
+    if not OCR_AVAILABLE:
+        return {
+            "success": False,
+            "error": "OCR not available",
+            "raw_text": "",
+            "extracted_data": {}
+        }
+    
+    try:
+        # Decode base64 image
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+        
+        image_data = base64.b64decode(image_base64)
+        image = Image.open(BytesIO(image_data))
+        
+        # Convert to RGB if necessary
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Perform OCR
+        raw_text = pytesseract.image_to_string(image, lang='eng')
+        
+        # Extract fields
+        platform, platform_conf = detect_platform(raw_text)
+        price, price_conf = extract_price(raw_text)
+        brand, brand_conf = extract_brand(raw_text)
+        size, size_conf = extract_size(raw_text)
+        condition, condition_conf = extract_condition(raw_text)
+        category, category_conf = extract_category(raw_text)
+        color, color_conf = extract_color(raw_text)
+        title, title_conf = extract_title(raw_text, brand)
+        
+        extracted_data = {
+            "title": {"value": title or "", "confidence": title_conf},
+            "brand": {"value": brand or "", "confidence": brand_conf},
+            "listed_price": {"value": price, "confidence": price_conf},
+            "size": {"value": size or "", "confidence": size_conf},
+            "condition": {"value": condition or "", "confidence": condition_conf},
+            "category": {"value": category or "", "confidence": category_conf},
+            "color": {"value": color or "", "confidence": color_conf},
+        }
+        
+        return {
+            "success": True,
+            "raw_text": raw_text,
+            "extracted_data": extracted_data,
+            "detected_platform": platform,
+            "platform_confidence": platform_conf,
+        }
+        
+    except Exception as e:
+        logging.error(f"OCR Error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "raw_text": "",
+            "extracted_data": {}
+        }
+
+@api_router.post("/analyze-screenshot")
+async def analyze_screenshot(req: ScreenshotAnalysisRequest):
+    """Analyze uploaded screenshot(s) to extract listing information"""
+    if not req.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+    
+    all_text = []
+    combined_data = {}
+    detected_platforms = []
+    
+    for idx, image_b64 in enumerate(req.images):
+        result = analyze_screenshot_ocr(image_b64)
+        
+        if result["success"]:
+            all_text.append(result["raw_text"])
+            
+            if result.get("detected_platform"):
+                detected_platforms.append(result["detected_platform"])
+            
+            # Merge extracted data, preferring higher confidence values
+            for field, data in result.get("extracted_data", {}).items():
+                if field not in combined_data:
+                    combined_data[field] = data
+                elif data.get("confidence") == "high" and combined_data[field].get("confidence") != "high":
+                    combined_data[field] = data
+                elif data.get("value") and not combined_data[field].get("value"):
+                    combined_data[field] = data
+    
+    # Determine primary platform
+    primary_platform = detected_platforms[0] if detected_platforms else None
+    
+    return {
+        "success": True,
+        "extracted_data": combined_data,
+        "raw_text": "\n---\n".join(all_text),
+        "detected_platform": primary_platform,
+        "original_screenshot": req.images[0] if req.images else None,
     }
 
 

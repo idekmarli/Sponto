@@ -10,11 +10,71 @@ import { store } from '../src/store';
 
 const PLATFORMS = ['eBay', 'Depop', 'Vinted', 'Vestiaire', 'Poshmark', 'Etsy'];
 
-export default function QuickAddScreen() {
-  const insets = useSafeAreaInsets();
+type AddMode = 'choose' | 'manual';
+
+// ─── Mode Selection ───
+function ModeSelectionScreen({ onSelectManual, onSelectScreenshot }: { onSelectManual: () => void; onSelectScreenshot: () => void }) {
+  return (
+    <View style={styles.modeContainer}>
+      <View style={styles.modeHeader}>
+        <Text style={styles.modeTitle}>Add New Item</Text>
+        <Text style={styles.modeSubtitle}>Choose how you'd like to add your item</Text>
+      </View>
+
+      {/* Screenshot Option - Featured */}
+      <TouchableOpacity style={styles.modeCardFeatured} onPress={onSelectScreenshot} activeOpacity={0.7}>
+        <View style={styles.modeCardFeaturedBadge}>
+          <Feather name="zap" size={10} color={colors.textInverse} />
+          <Text style={styles.modeCardFeaturedBadgeText}>Smart</Text>
+        </View>
+        <View style={styles.modeCardIcon}>
+          <Feather name="image" size={28} color={colors.brand} />
+        </View>
+        <Text style={styles.modeCardTitle}>Add from Screenshot</Text>
+        <Text style={styles.modeCardDesc}>
+          Upload a marketplace screenshot and we'll automatically extract the listing details
+        </Text>
+        <View style={styles.modeCardFeatures}>
+          <View style={styles.modeCardFeature}>
+            <Feather name="check" size={12} color={colors.success} />
+            <Text style={styles.modeCardFeatureText}>Auto-extracts title, price, size</Text>
+          </View>
+          <View style={styles.modeCardFeature}>
+            <Feather name="check" size={12} color={colors.success} />
+            <Text style={styles.modeCardFeatureText}>Detects marketplace platform</Text>
+          </View>
+          <View style={styles.modeCardFeature}>
+            <Feather name="check" size={12} color={colors.success} />
+            <Text style={styles.modeCardFeatureText}>Review & edit before saving</Text>
+          </View>
+        </View>
+        <View style={styles.modeCardAction}>
+          <Text style={styles.modeCardActionText}>Select Screenshots</Text>
+          <Feather name="arrow-right" size={16} color={colors.textInverse} />
+        </View>
+      </TouchableOpacity>
+
+      {/* Manual Option */}
+      <TouchableOpacity style={styles.modeCardSecondary} onPress={onSelectManual} activeOpacity={0.7}>
+        <View style={styles.modeCardSecondaryInner}>
+          <View style={styles.modeCardIconSmall}>
+            <Feather name="edit-3" size={20} color={colors.textSecondary} />
+          </View>
+          <View style={styles.modeCardSecondaryContent}>
+            <Text style={styles.modeCardSecondaryTitle}>Manual Entry</Text>
+            <Text style={styles.modeCardSecondaryDesc}>Quick form for basic item details</Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={colors.textMuted} />
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Manual Entry Form ───
+function ManualEntryForm({ onBack, params }: { onBack: () => void; params: any }) {
   const router = useRouter();
   const { formatAmount, currency } = useCurrency();
-  const params = useLocalSearchParams<{ fromSource?: string; purchasePrice?: string; targetPrice?: string; platform?: string }>();
   const [saving, setSaving] = useState(false);
 
   // Form State
@@ -67,161 +127,206 @@ export default function QuickAddScreen() {
   };
 
   return (
+    <>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* From Source Calculator Banner */}
+        {params.fromSource && (
+          <View style={styles.sourceBanner}>
+            <Feather name="zap" size={14} color={colors.success} />
+            <Text style={styles.sourceBannerText}>Pre-filled from Source Calculator</Text>
+          </View>
+        )}
+
+        {/* Title */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>What is it?</Text>
+          <TextInput
+            testID="input-title"
+            style={styles.textInput}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="e.g. Acne Studios Musubi Bag"
+            placeholderTextColor={colors.textMuted}
+            autoFocus
+          />
+        </View>
+
+        {/* Brand */}
+        <View style={styles.field}>
+          <View style={styles.labelRow}>
+            <Text style={styles.fieldLabel}>Brand</Text>
+            <Text style={styles.optionalText}>optional</Text>
+          </View>
+          <TextInput
+            testID="input-brand"
+            style={styles.textInput}
+            value={brand}
+            onChangeText={setBrand}
+            placeholder="e.g. Acne Studios"
+            placeholderTextColor={colors.textMuted}
+          />
+        </View>
+
+        {/* Price Card */}
+        <View style={styles.priceCard}>
+          <View style={styles.priceRow}>
+            <View style={styles.priceCol}>
+              <Text style={styles.priceLabel}>Purchase</Text>
+              <View style={styles.priceInputRow}>
+                <Text style={styles.pricePrefix}>{currency.symbol}</Text>
+                <TextInput
+                  testID="input-purchase"
+                  style={styles.priceInput}
+                  value={purchasePrice}
+                  onChangeText={setPurchasePrice}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            </View>
+            <View style={styles.priceDivider} />
+            <View style={styles.priceCol}>
+              <Text style={styles.priceLabel}>Target Sale</Text>
+              <View style={styles.priceInputRow}>
+                <Text style={styles.pricePrefix}>{currency.symbol}</Text>
+                <TextInput
+                  testID="input-target"
+                  style={styles.priceInput}
+                  value={targetPrice}
+                  onChangeText={setTargetPrice}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            </View>
+          </View>
+          {/* Profit Preview */}
+          {target > 0 && totalCost > 0 && (
+            <View style={[styles.profitRow, { backgroundColor: potentialProfit >= 0 ? colors.successLight : colors.errorLight }]}>
+              <Text style={styles.profitLabel}>Est. Profit</Text>
+              <Text style={[styles.profitValue, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
+                {potentialProfit >= 0 ? '+' : ''}{formatAmount(potentialProfit)}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Platform */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Primary Platform</Text>
+          <View style={styles.platformRow}>
+            {PLATFORMS.map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.platformChip, platform === p && styles.platformChipActive]}
+                onPress={() => setPlatform(p)}
+                activeOpacity={0.6}
+              >
+                <Text style={[styles.platformText, platform === p && styles.platformTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Actions */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          testID="save-another-btn"
+          style={[styles.addAnotherBtn, !canSave && styles.btnDisabled]}
+          onPress={() => saveItem(true)}
+          disabled={!canSave || saving}
+          activeOpacity={0.6}
+        >
+          <Feather name="plus" size={18} color={canSave ? colors.textSecondary : colors.textMuted} />
+          <Text style={[styles.addAnotherText, !canSave && styles.textDisabled]}>Save & Add</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="save-btn"
+          style={[styles.saveBtn, !canSave && styles.btnDisabled]}
+          onPress={() => saveItem(false)}
+          disabled={!canSave || saving}
+          activeOpacity={0.7}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.textInverse} />
+          ) : (
+            <>
+              <Feather name="check" size={18} color={colors.textInverse} />
+              <Text style={styles.saveText}>Save Item</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+}
+
+// ─── Main Component ───
+export default function QuickAddScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ fromSource?: string; purchasePrice?: string; targetPrice?: string; platform?: string }>();
+  
+  // If coming from source calculator, go straight to manual entry
+  const [mode, setMode] = useState<AddMode>(params.fromSource ? 'manual' : 'choose');
+
+  const handleSelectScreenshot = () => {
+    router.push('/add-from-screenshot');
+  };
+
+  const handleSelectManual = () => {
+    setMode('manual');
+  };
+
+  const handleBack = () => {
+    if (mode === 'manual' && !params.fromSource) {
+      setMode('choose');
+    } else {
+      router.back();
+    }
+  };
+
+  return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View testID="quick-add-screen" style={[styles.container, { paddingTop: insets.top + space[2], paddingBottom: Math.max(insets.bottom, space[4]) }]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             testID="close-btn"
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={styles.closeBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.6}
           >
-            <Feather name="x" size={20} color={colors.textPrimary} />
+            <Feather name={mode === 'manual' && !params.fromSource ? 'arrow-left' : 'x'} size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Quick Add</Text>
-          <TouchableOpacity
-            testID="full-form-btn"
-            onPress={() => router.replace('/add-item')}
-            activeOpacity={0.6}
-          >
-            <Text style={styles.fullFormText}>Full Form</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* From Source Calculator Banner */}
-          {params.fromSource && (
-            <View style={styles.sourceBanner}>
-              <Feather name="zap" size={14} color={colors.success} />
-              <Text style={styles.sourceBannerText}>Pre-filled from Source Calculator</Text>
-            </View>
+          <Text style={styles.headerTitle}>{mode === 'choose' ? 'Add Item' : 'Quick Add'}</Text>
+          {mode === 'manual' ? (
+            <TouchableOpacity
+              testID="full-form-btn"
+              onPress={() => router.replace('/add-item')}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.fullFormText}>Full Form</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 60 }} />
           )}
-
-          {/* Title */}
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>What is it?</Text>
-            <TextInput
-              testID="input-title"
-              style={styles.textInput}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="e.g. Acne Studios Musubi Bag"
-              placeholderTextColor={colors.textMuted}
-              autoFocus
-            />
-          </View>
-
-          {/* Brand */}
-          <View style={styles.field}>
-            <View style={styles.labelRow}>
-              <Text style={styles.fieldLabel}>Brand</Text>
-              <Text style={styles.optionalText}>optional</Text>
-            </View>
-            <TextInput
-              testID="input-brand"
-              style={styles.textInput}
-              value={brand}
-              onChangeText={setBrand}
-              placeholder="e.g. Acne Studios"
-              placeholderTextColor={colors.textMuted}
-            />
-          </View>
-
-          {/* Price Card */}
-          <View style={styles.priceCard}>
-            <View style={styles.priceRow}>
-              <View style={styles.priceCol}>
-                <Text style={styles.priceLabel}>Purchase</Text>
-                <View style={styles.priceInputRow}>
-                  <Text style={styles.pricePrefix}>{currency.symbol}</Text>
-                  <TextInput
-                    testID="input-purchase"
-                    style={styles.priceInput}
-                    value={purchasePrice}
-                    onChangeText={setPurchasePrice}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                </View>
-              </View>
-              <View style={styles.priceDivider} />
-              <View style={styles.priceCol}>
-                <Text style={styles.priceLabel}>Target Sale</Text>
-                <View style={styles.priceInputRow}>
-                  <Text style={styles.pricePrefix}>{currency.symbol}</Text>
-                  <TextInput
-                    testID="input-target"
-                    style={styles.priceInput}
-                    value={targetPrice}
-                    onChangeText={setTargetPrice}
-                    keyboardType="numeric"
-                    placeholder="0"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                </View>
-              </View>
-            </View>
-            {/* Profit Preview */}
-            {target > 0 && totalCost > 0 && (
-              <View style={[styles.profitRow, { backgroundColor: potentialProfit >= 0 ? colors.successLight : colors.errorLight }]}>
-                <Text style={styles.profitLabel}>Est. Profit</Text>
-                <Text style={[styles.profitValue, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
-                  {potentialProfit >= 0 ? '+' : ''}{formatAmount(potentialProfit)}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Platform */}
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>Primary Platform</Text>
-            <View style={styles.platformRow}>
-              {PLATFORMS.map((p) => (
-                <TouchableOpacity
-                  key={p}
-                  style={[styles.platformChip, platform === p && styles.platformChipActive]}
-                  onPress={() => setPlatform(p)}
-                  activeOpacity={0.6}
-                >
-                  <Text style={[styles.platformText, platform === p && styles.platformTextActive]}>{p}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity
-            testID="save-another-btn"
-            style={[styles.addAnotherBtn, !canSave && styles.btnDisabled]}
-            onPress={() => saveItem(true)}
-            disabled={!canSave || saving}
-            activeOpacity={0.6}
-          >
-            <Feather name="plus" size={18} color={canSave ? colors.textSecondary : colors.textMuted} />
-            <Text style={[styles.addAnotherText, !canSave && styles.textDisabled]}>Save & Add</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="save-btn"
-            style={[styles.saveBtn, !canSave && styles.btnDisabled]}
-            onPress={() => saveItem(false)}
-            disabled={!canSave || saving}
-            activeOpacity={0.7}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={colors.textInverse} />
-            ) : (
-              <>
-                <Feather name="check" size={18} color={colors.textInverse} />
-                <Text style={styles.saveText}>Save Item</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
+
+        {mode === 'choose' && (
+          <ModeSelectionScreen 
+            onSelectManual={handleSelectManual}
+            onSelectScreenshot={handleSelectScreenshot}
+          />
+        )}
+
+        {mode === 'manual' && (
+          <ManualEntryForm onBack={handleBack} params={params} />
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -240,7 +345,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space[6],
+    marginBottom: space[5],
   },
   closeBtn: {
     width: spacing.touchTarget,
@@ -260,6 +365,136 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm,
     color: colors.accent,
+  },
+
+  // Mode Selection
+  modeContainer: {
+    flex: 1,
+  },
+  modeHeader: {
+    alignItems: 'center',
+    marginBottom: space[6],
+  },
+  modeTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
+    color: colors.textPrimary,
+    marginBottom: space[2],
+  },
+  modeSubtitle: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+  modeCardFeatured: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: space[5],
+    marginBottom: space[4],
+    ...shadows.medium,
+    position: 'relative',
+  },
+  modeCardFeaturedBadge: {
+    position: 'absolute',
+    top: space[4],
+    right: space[4],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.brand,
+    paddingHorizontal: space[2],
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  modeCardFeaturedBadgeText: {
+    fontFamily: fontFamily.bold,
+    fontSize: 10,
+    color: colors.textInverse,
+    textTransform: 'uppercase',
+  },
+  modeCardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space[4],
+  },
+  modeCardIconSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeCardTitle: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
+    color: colors.textPrimary,
+    marginBottom: space[2],
+  },
+  modeCardDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: space[4],
+  },
+  modeCardFeatures: {
+    gap: space[2],
+    marginBottom: space[5],
+  },
+  modeCardFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  modeCardFeatureText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+  modeCardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    backgroundColor: colors.brand,
+    borderRadius: radius.lg,
+    height: spacing.buttonHeight,
+    ...shadows.sm,
+  },
+  modeCardActionText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
+  },
+  modeCardSecondary: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    ...shadows.sm,
+  },
+  modeCardSecondaryInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: space[4],
+    gap: space[3],
+  },
+  modeCardSecondaryContent: {
+    flex: 1,
+  },
+  modeCardSecondaryTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  modeCardSecondaryDesc: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
   },
 
   // Scroll
