@@ -61,7 +61,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#8B7355"
+          "color": "#1D6F42"
         }
       ],
       [
@@ -83,6 +83,6 @@
     "owner": "resellr",
     "description": "The smart inventory management app for resellers. Track items, calculate profits, and grow your business.",
     "githubUrl": "https://github.com/resellr/resellr-os",
-    "primaryColor": "#8B7355"
+    "primaryColor": "#1D6F42"
   }
 }
