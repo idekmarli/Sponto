@@ -2,8 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../../src/theme';
 import { api } from '../../src/api';
+import { useCurrency } from '../../src/currency';
+import { EmptyState, StatCard, Divider } from '../../src/components/UI';
 
 interface InsightsData {
   platform_revenue: Record<string, number>;
@@ -18,10 +20,11 @@ interface InsightsData {
   total_active: number;
 }
 
-// Bar Chart Component
-function BarChart({ data, valueKey, colorFn }: { 
+// Minimal Bar Chart
+function BarChart({ data, valueKey, formatValue, colorFn }: { 
   data: Array<{ month: string; [key: string]: any }>; 
   valueKey: string;
+  formatValue: (v: number) => string;
   colorFn?: (value: number, isLast: boolean) => string;
 }) {
   if (data.length === 0) return null;
@@ -33,12 +36,12 @@ function BarChart({ data, valueKey, colorFn }: {
         const value = d[valueKey];
         const h = Math.max((Math.abs(value) / maxVal) * 64, 4);
         const isLast = i === data.length - 1;
-        const barColor = colorFn ? colorFn(value, isLast) : (isLast ? colors.accent : colors.surfaceHighlight);
+        const barColor = colorFn ? colorFn(value, isLast) : (isLast ? colors.accent : colors.surfaceMuted);
         
         return (
           <View key={i} style={chartStyles.col}>
             <Text style={[chartStyles.value, isLast && { color: colors.textPrimary }]}>
-              ${Math.abs(value)}
+              {formatValue(Math.abs(value))}
             </Text>
             <View style={chartStyles.barArea}>
               <View style={[chartStyles.bar, { height: h, backgroundColor: barColor }]} />
@@ -63,6 +66,7 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
 
 export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
+  const { formatAmount, formatAmountCompact } = useCurrency();
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,7 +86,6 @@ export default function InsightsScreen() {
     fetchInsights();
   }, [fetchInsights]);
 
-  // Loading State
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -92,15 +95,17 @@ export default function InsightsScreen() {
     );
   }
 
-  // Empty State
   if (!data) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <View style={styles.emptyIcon}>
-          <Feather name="bar-chart-2" size={28} color={colors.textTertiary} />
+      <View style={[styles.container, { paddingTop: insets.top + space[4] }]}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Insights</Text>
         </View>
-        <Text style={styles.emptyTitle}>No data yet</Text>
-        <Text style={styles.emptyText}>Start selling to see your business insights</Text>
+        <EmptyState
+          icon="bar-chart-2"
+          title="No data yet"
+          description="Start selling to see your business insights"
+        />
       </View>
     );
   }
@@ -114,7 +119,7 @@ export default function InsightsScreen() {
     <ScrollView
       testID="insights-screen"
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[4] }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -130,26 +135,26 @@ export default function InsightsScreen() {
         <Text style={styles.subtitle}>Business performance</Text>
       </View>
 
-      {/* Key Metrics */}
+      {/* Key Metrics - 2x2 Grid */}
       <View style={styles.metricsGrid}>
-        <View testID="stat-roi" style={styles.metricCard}>
-          <Text style={styles.metricValue}>{data.avg_roi}%</Text>
-          <Text style={styles.metricLabel}>Avg ROI</Text>
-        </View>
-        <View testID="stat-days" style={styles.metricCard}>
-          <Text style={styles.metricValue}>{data.avg_days_to_sell}</Text>
-          <Text style={styles.metricLabel}>Avg Days to Sell</Text>
-        </View>
-        <View testID="stat-deadstock" style={[styles.metricCard, data.dead_stock_percentage > 20 && styles.metricCardWarning]}>
-          <Text style={[styles.metricValue, data.dead_stock_percentage > 20 && { color: colors.warning }]}>
-            {data.dead_stock_percentage}%
-          </Text>
-          <Text style={styles.metricLabel}>Dead Stock</Text>
-        </View>
-        <View testID="stat-stale-capital" style={styles.metricCard}>
-          <Text style={styles.metricValue}>${data.capital_in_stale}</Text>
-          <Text style={styles.metricLabel}>Stale Capital</Text>
-        </View>
+        <StatCard
+          label="Avg ROI"
+          value={`${data.avg_roi}%`}
+          variant={data.avg_roi > 50 ? 'highlight' : 'default'}
+        />
+        <StatCard
+          label="Avg Days to Sell"
+          value={`${data.avg_days_to_sell}`}
+        />
+        <StatCard
+          label="Dead Stock"
+          value={`${data.dead_stock_percentage}%`}
+          variant={data.dead_stock_percentage > 20 ? 'warning' : 'default'}
+        />
+        <StatCard
+          label="Stale Capital"
+          value={formatAmountCompact(data.capital_in_stale)}
+        />
       </View>
 
       {/* Monthly Revenue */}
@@ -160,7 +165,8 @@ export default function InsightsScreen() {
             <BarChart 
               data={data.monthly_trends} 
               valueKey="revenue"
-              colorFn={(_, isLast) => isLast ? colors.accent : colors.surfaceHighlight}
+              formatValue={(v) => formatAmountCompact(v)}
+              colorFn={(_, isLast) => isLast ? colors.accent : colors.surfaceMuted}
             />
           </View>
         </View>
@@ -174,9 +180,10 @@ export default function InsightsScreen() {
             <BarChart 
               data={data.monthly_trends} 
               valueKey="profit"
+              formatValue={(v) => formatAmountCompact(v)}
               colorFn={(value, isLast) => {
                 if (isLast) return value >= 0 ? colors.success : colors.warning;
-                return colors.surfaceHighlight;
+                return colors.surfaceMuted;
               }}
             />
           </View>
@@ -192,17 +199,15 @@ export default function InsightsScreen() {
               const profit = data.platform_profit[platform] || 0;
               return (
                 <View key={platform}>
-                  {i > 0 && <View style={styles.listDivider} />}
+                  {i > 0 && <Divider />}
                   <View style={styles.listItem}>
                     <View style={styles.listItemHeader}>
                       <Text style={styles.listItemTitle}>
                         {platform.charAt(0).toUpperCase() + platform.slice(1)}
                       </Text>
-                      <Text style={styles.listItemValue}>${revenue}</Text>
+                      <Text style={styles.listItemValue}>{formatAmount(revenue)}</Text>
                     </View>
-                    <View style={styles.listItemMeta}>
-                      <Text style={styles.listItemSubtext}>${profit} profit</Text>
-                    </View>
+                    <Text style={styles.listItemSubtext}>{formatAmount(profit)} profit</Text>
                     <ProgressBar value={revenue} max={maxPlatformRev} color={colors.accent} />
                   </View>
                 </View>
@@ -219,14 +224,14 @@ export default function InsightsScreen() {
           <View style={styles.listCard}>
             {categoryEntries.map(([category, perf], i) => (
               <View key={category}>
-                {i > 0 && <View style={styles.listDivider} />}
+                {i > 0 && <Divider />}
                 <View style={styles.listItem}>
                   <View style={styles.listItemHeader}>
                     <View>
                       <Text style={styles.listItemTitle}>{category}</Text>
                       <Text style={styles.listItemSubtext}>{perf.count} sold</Text>
                     </View>
-                    <Text style={[styles.listItemProfit, { color: colors.success }]}>${perf.profit}</Text>
+                    <Text style={[styles.listItemProfit, { color: colors.success }]}>{formatAmount(perf.profit)}</Text>
                   </View>
                   <ProgressBar value={perf.profit} max={maxCategoryProfit} color={colors.success} />
                 </View>
@@ -236,7 +241,7 @@ export default function InsightsScreen() {
         </View>
       )}
 
-      <View style={{ height: 32 }} />
+      <View style={{ height: space[8] }} />
     </ScrollView>
   );
 }
@@ -246,16 +251,16 @@ const chartStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: space[2],
   },
   col: {
     flex: 1,
     alignItems: 'center',
-    gap: 8,
+    gap: space[2],
   },
   value: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
   barArea: {
@@ -267,23 +272,23 @@ const chartStyles = StyleSheet.create({
     borderRadius: 6,
   },
   label: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
     letterSpacing: 0.3,
   },
   labelActive: {
     color: colors.textPrimary,
-    fontFamily: 'SpaceMono_700Bold',
+    fontFamily: fontFamily.monoBold,
   },
 });
 
 const progressStyles = StyleSheet.create({
   container: {
     height: 4,
-    backgroundColor: colors.surfaceHighlight,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 2,
-    marginTop: 10,
+    marginTop: space[2] + 2,
   },
   fill: {
     height: 4,
@@ -297,59 +302,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: spacing.containerPadding,
+    paddingHorizontal: spacing.screenPadding,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Loading
   loadingText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginTop: 16,
-  },
-
-  // Empty State
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surfaceHighlight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    marginTop: space[4],
   },
 
   // Header
   header: {
-    marginBottom: spacing.l,
+    marginBottom: space[6],
   },
   title: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 32,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['3xl'],
     color: colors.textPrimary,
     letterSpacing: -0.8,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   subtitle: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
     color: colors.textSecondary,
   },
 
@@ -357,69 +337,39 @@ const styles = StyleSheet.create({
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.sectionGap,
-  },
-  metricCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    ...shadows.subtle,
-  },
-  metricCardWarning: {
-    backgroundColor: colors.warningLight,
-  },
-  metricValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 28,
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  metricLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    gap: space[3],
+    marginBottom: space[8],
   },
 
   // Sections
   section: {
-    marginBottom: spacing.sectionGap,
+    marginBottom: space[8],
   },
   sectionTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 17,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
     letterSpacing: -0.2,
-    marginBottom: 14,
+    marginBottom: space[3] + 2,
   },
 
   // Chart Card
   chartCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     padding: spacing.cardPadding,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
 
   // List Card
   listCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.cardPadding,
-    ...shadows.subtle,
-  },
-  listDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.divider,
+    ...shadows.xs,
   },
   listItem: {
-    paddingVertical: 16,
+    paddingVertical: space[4],
   },
   listItemHeader: {
     flexDirection: 'row',
@@ -427,27 +377,25 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   listItemTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
   },
   listItemValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
-  listItemMeta: {
+  listItemSubtext: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
     marginTop: 2,
   },
-  listItemSubtext: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
   listItemProfit: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     letterSpacing: -0.3,
   },
 });

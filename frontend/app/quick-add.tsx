@@ -3,16 +3,17 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Keyboa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
+import { useCurrency } from '../src/currency';
 import { api } from '../src/api';
 import { store } from '../src/store';
 
 const PLATFORMS = ['eBay', 'Depop', 'Vinted', 'Vestiaire', 'Poshmark', 'Etsy'];
 
-// Quick Add - Single screen, minimal fields for fast entry
 export default function QuickAddScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatAmount, currency } = useCurrency();
   const params = useLocalSearchParams<{ fromSource?: string; purchasePrice?: string; targetPrice?: string; platform?: string }>();
   const [saving, setSaving] = useState(false);
 
@@ -23,7 +24,6 @@ export default function QuickAddScreen() {
   const [targetPrice, setTargetPrice] = useState(params.targetPrice || '');
   const [platform, setPlatform] = useState(params.platform || 'eBay');
 
-  // Load last used platform
   useEffect(() => {
     if (!params.platform) {
       store.getLastPlatform().then(setPlatform);
@@ -52,7 +52,6 @@ export default function QuickAddScreen() {
       });
       
       if (addAnother) {
-        // Reset form for another entry
         setTitle('');
         setBrand('');
         setPurchasePrice('');
@@ -69,7 +68,7 @@ export default function QuickAddScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View testID="quick-add-screen" style={[styles.container, { paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View testID="quick-add-screen" style={[styles.container, { paddingTop: insets.top + space[2], paddingBottom: Math.max(insets.bottom, space[4]) }]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -114,7 +113,7 @@ export default function QuickAddScreen() {
             />
           </View>
 
-          {/* Brand (Optional) */}
+          {/* Brand */}
           <View style={styles.field}>
             <View style={styles.labelRow}>
               <Text style={styles.fieldLabel}>Brand</Text>
@@ -136,7 +135,7 @@ export default function QuickAddScreen() {
               <View style={styles.priceCol}>
                 <Text style={styles.priceLabel}>Purchase</Text>
                 <View style={styles.priceInputRow}>
-                  <Text style={styles.pricePrefix}>$</Text>
+                  <Text style={styles.pricePrefix}>{currency.symbol}</Text>
                   <TextInput
                     testID="input-purchase"
                     style={styles.priceInput}
@@ -152,7 +151,7 @@ export default function QuickAddScreen() {
               <View style={styles.priceCol}>
                 <Text style={styles.priceLabel}>Target Sale</Text>
                 <View style={styles.priceInputRow}>
-                  <Text style={styles.pricePrefix}>$</Text>
+                  <Text style={styles.pricePrefix}>{currency.symbol}</Text>
                   <TextInput
                     testID="input-target"
                     style={styles.priceInput}
@@ -170,7 +169,7 @@ export default function QuickAddScreen() {
               <View style={[styles.profitRow, { backgroundColor: potentialProfit >= 0 ? colors.successLight : colors.errorLight }]}>
                 <Text style={styles.profitLabel}>Est. Profit</Text>
                 <Text style={[styles.profitValue, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
-                  {potentialProfit >= 0 ? '+' : ''}${potentialProfit.toFixed(0)}
+                  {potentialProfit >= 0 ? '+' : ''}{formatAmount(potentialProfit)}
                 </Text>
               </View>
             )}
@@ -204,7 +203,7 @@ export default function QuickAddScreen() {
             activeOpacity={0.6}
           >
             <Feather name="plus" size={18} color={canSave ? colors.textSecondary : colors.textMuted} />
-            <Text style={[styles.addAnotherText, !canSave && styles.textDisabled]}>Save & Add Another</Text>
+            <Text style={[styles.addAnotherText, !canSave && styles.textDisabled]}>Save & Add</Text>
           </TouchableOpacity>
           <TouchableOpacity
             testID="save-btn"
@@ -214,10 +213,10 @@ export default function QuickAddScreen() {
             activeOpacity={0.7}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.textInverse} />
             ) : (
               <>
-                <Feather name="check" size={18} color="#FFFFFF" />
+                <Feather name="check" size={18} color={colors.textInverse} />
                 <Text style={styles.saveText}>Save Item</Text>
               </>
             )}
@@ -233,7 +232,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing.containerPadding,
+    paddingHorizontal: spacing.screenPadding,
   },
 
   // Header
@@ -241,25 +240,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: space[6],
   },
   closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: spacing.touchTarget,
+    height: spacing.touchTarget,
+    borderRadius: spacing.touchTarget / 2,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   headerTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 17,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
   },
   fullFormText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.accent,
   },
 
@@ -270,58 +269,58 @@ const styles = StyleSheet.create({
   sourceBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space[2],
     backgroundColor: colors.successLight,
-    borderRadius: borderRadius.m,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 20,
+    borderRadius: radius.md,
+    paddingVertical: space[2] + 2,
+    paddingHorizontal: space[3] + 2,
+    marginBottom: space[5],
   },
   sourceBannerText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.success,
   },
 
   // Fields
-  field: { marginBottom: 20 },
+  field: { marginBottom: space[5] },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space[2],
   },
   fieldLabel: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
-    marginBottom: 10,
+    marginBottom: space[2] + 2,
   },
   optionalText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 11,
-    color: colors.textTertiary,
-    marginBottom: 10,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginBottom: space[2] + 2,
   },
   textInput: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.m,
+    borderRadius: radius.md,
     height: spacing.inputHeight,
-    paddingHorizontal: 16,
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 15,
+    paddingHorizontal: space[4],
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
 
   // Price Card
   priceCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     overflow: 'hidden',
-    marginBottom: 20,
-    ...shadows.card,
+    marginBottom: space[5],
+    ...shadows.sm,
   },
   priceRow: {
     flexDirection: 'row',
@@ -336,24 +335,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.divider,
   },
   priceLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: space[2],
   },
   priceInputRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   pricePrefix: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 20,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xl,
     color: colors.textTertiary,
     marginRight: 2,
   },
   priceInput: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 28,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['2xl'] + 4,
     color: colors.textPrimary,
     padding: 0,
     minWidth: 60,
@@ -364,17 +363,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
   },
   profitLabel: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   profitValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     letterSpacing: -0.3,
   },
 
@@ -382,32 +381,32 @@ const styles = StyleSheet.create({
   platformRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space[2],
   },
   platformChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: borderRadius.pill,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   platformChipActive: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.brand,
   },
   platformText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   platformTextActive: {
-    color: '#FFFFFF',
+    color: colors.textInverse,
   },
 
   // Actions
   actions: {
     flexDirection: 'row',
-    gap: 12,
-    paddingTop: 12,
+    gap: space[3],
+    paddingTop: space[3],
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
@@ -416,15 +415,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: space[1] + 2,
     height: spacing.buttonHeight,
-    borderRadius: borderRadius.pill,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   addAnotherText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   saveBtn: {
@@ -432,16 +431,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: space[2],
     height: spacing.buttonHeight,
-    borderRadius: borderRadius.pill,
-    backgroundColor: colors.textPrimary,
-    ...shadows.medium,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand,
+    ...shadows.md,
   },
   saveText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
   },
   btnDisabled: {
     opacity: 0.4,

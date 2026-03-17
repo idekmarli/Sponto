@@ -3,8 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
+import { useCurrency } from '../src/currency';
 import { api } from '../src/api';
+import { EmptyState } from '../src/components/UI';
 
 const BUCKETS = [
   { key: '90_plus', label: '90+ days', color: colors.error, urgency: 'Critical', icon: 'alert-octagon' },
@@ -20,8 +22,13 @@ const ACTION_CONFIG: Record<string, { icon: string; label: string }> = {
   'Archive or bundle': { icon: 'archive', label: 'Archive or bundle' },
 };
 
-// Dead Stock Item Card
-function DeadStockItem({ item, bucket, onPress }: { item: any; bucket: typeof BUCKETS[0]; onPress: () => void }) {
+// Dead Stock Item Card - Action-oriented
+function DeadStockItem({ item, bucket, onPress, formatAmount }: { 
+  item: any; 
+  bucket: typeof BUCKETS[0]; 
+  onPress: () => void;
+  formatAmount: (n: number) => string;
+}) {
   const potential = (item.target_list_price || 0) - (item.total_cost_basis || 0);
   const action = ACTION_CONFIG[item.suggested_action] || { icon: 'info', label: item.suggested_action };
 
@@ -44,22 +51,22 @@ function DeadStockItem({ item, bucket, onPress }: { item: any; bucket: typeof BU
           <View style={styles.itemStats}>
             <Text style={styles.itemDays}>{item.days_listed}d listed</Text>
             <Text style={styles.itemDot}>·</Text>
-            <Text style={styles.itemCost}>${item.total_cost_basis} invested</Text>
+            <Text style={styles.itemCost}>{formatAmount(item.total_cost_basis)} invested</Text>
           </View>
         </View>
 
         {/* Potential */}
         <View style={styles.itemPotential}>
           <Text style={[styles.potentialValue, { color: potential >= 0 ? colors.success : colors.error }]}>
-            {potential >= 0 ? '+' : ''}${potential.toFixed(0)}
+            {potential >= 0 ? '+' : ''}{formatAmount(potential)}
           </Text>
           <Text style={styles.potentialLabel}>potential</Text>
         </View>
       </View>
 
-      {/* Action Suggestion */}
+      {/* Action Suggestion - Action-oriented */}
       {item.suggested_action && (
-        <View style={[styles.actionSuggestion, { backgroundColor: bucket.color + '0A' }]}>
+        <View style={[styles.actionSuggestion, { backgroundColor: bucket.color + '08' }]}>
           <View style={[styles.actionIconWrap, { backgroundColor: bucket.color + '15' }]}>
             <Feather name={action.icon as any} size={12} color={bucket.color} />
           </View>
@@ -72,7 +79,7 @@ function DeadStockItem({ item, bucket, onPress }: { item: any; bucket: typeof BU
 }
 
 // Summary Stats Component
-function SummaryStats({ data }: { data: Record<string, any[]> }) {
+function SummaryStats({ data, formatAmount }: { data: Record<string, any[]>; formatAmount: (n: number) => string }) {
   const totalItems = Object.values(data).reduce((sum, arr) => sum + arr.length, 0);
   const totalCapital = Object.values(data).flat().reduce((sum, item) => sum + (item.total_cost_basis || 0), 0);
   const criticalCount = (data['90_plus'] || []).length;
@@ -86,7 +93,7 @@ function SummaryStats({ data }: { data: Record<string, any[]> }) {
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>${totalCapital.toLocaleString()}</Text>
+          <Text style={styles.summaryValue}>{formatAmount(totalCapital)}</Text>
           <Text style={styles.summaryLabel}>Capital tied</Text>
         </View>
         {criticalCount > 0 && (
@@ -106,13 +113,16 @@ function SummaryStats({ data }: { data: Record<string, any[]> }) {
 export default function DeadStockScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatAmount } = useCurrency();
   const [data, setData] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      setData(await api.getDeadstock());
+      const response = await api.getDeadstock();
+      // API returns { buckets: { ... }, total_stale_items, total_capital_locked }
+      setData(response?.buckets || {});
     } catch (e) {
       console.error(e);
     } finally {
@@ -127,7 +137,6 @@ export default function DeadStockScreen() {
 
   const totalItems = Object.values(data).reduce((sum, arr) => sum + arr.length, 0);
 
-  // Loading State
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -141,7 +150,7 @@ export default function DeadStockScreen() {
     <ScrollView
       testID="deadstock-screen"
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[2] }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -151,7 +160,7 @@ export default function DeadStockScreen() {
         />
       }
     >
-      {/* Header */}
+      {/* Header with Back */}
       <TouchableOpacity
         testID="back-btn"
         onPress={() => router.back()}
@@ -169,21 +178,18 @@ export default function DeadStockScreen() {
         </Text>
       </View>
 
-      {/* Empty State */}
+      {/* Empty State - Celebratory */}
       {totalItems === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Feather name="check-circle" size={32} color={colors.success} />
-          </View>
-          <Text style={styles.emptyTitle}>All clear</Text>
-          <Text style={styles.emptyText}>
-            No stale inventory detected.{'\n'}Your stock is moving well.
-          </Text>
-        </View>
+        <EmptyState
+          icon="check-circle"
+          title="All clear"
+          description="No stale inventory detected. Your stock is moving well."
+          variant="success"
+        />
       ) : (
         <>
           {/* Summary */}
-          <SummaryStats data={data} />
+          <SummaryStats data={data} formatAmount={formatAmount} />
 
           {/* Buckets */}
           {BUCKETS.map((bucket) => {
@@ -216,6 +222,7 @@ export default function DeadStockScreen() {
                       item={item}
                       bucket={bucket}
                       onPress={() => router.push(`/item/${item.id}`)}
+                      formatAmount={formatAmount}
                     />
                   ))}
                 </View>
@@ -225,7 +232,7 @@ export default function DeadStockScreen() {
         </>
       )}
 
-      <View style={{ height: 32 }} />
+      <View style={{ height: space[8] }} />
     </ScrollView>
   );
 }
@@ -236,83 +243,53 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: spacing.containerPadding,
+    paddingHorizontal: spacing.screenPadding,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Loading
   loadingText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginTop: 16,
+    marginTop: space[4],
   },
 
   // Header
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: spacing.touchTarget,
+    height: spacing.touchTarget,
+    borderRadius: spacing.touchTarget / 2,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    ...shadows.subtle,
+    marginBottom: space[4],
+    ...shadows.xs,
   },
   header: {
-    marginBottom: spacing.l,
+    marginBottom: space[6],
   },
   title: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 32,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['3xl'],
     color: colors.textPrimary,
     letterSpacing: -0.8,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   subtitle: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
     color: colors.textSecondary,
-  },
-
-  // Empty State
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 64,
-  },
-  emptyIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.successLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 22,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
   },
 
   // Summary Card
   summaryCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     padding: spacing.cardPadding,
-    marginBottom: spacing.sectionGap,
-    ...shadows.card,
+    marginBottom: space[8],
+    ...shadows.sm,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -328,32 +305,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.divider,
   },
   summaryValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 24,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['2xl'],
     color: colors.textPrimary,
     letterSpacing: -0.5,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   summaryLabel: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textSecondary,
   },
 
   // Bucket Section
   bucketSection: {
-    marginBottom: spacing.l,
+    marginBottom: space[6],
   },
   bucketHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: space[3] + 2,
   },
   bucketLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space[3],
   },
   bucketIconWrap: {
     width: 36,
@@ -363,48 +340,48 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bucketLabel: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
   },
   bucketUrgency: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
     marginTop: 1,
   },
   bucketCount: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: borderRadius.pill,
+    paddingHorizontal: space[3],
+    paddingVertical: space[1] + 2,
+    borderRadius: radius.full,
   },
   bucketCountText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
   },
 
   // Bucket Items
   bucketItems: {
-    gap: 10,
+    gap: space[2] + 2,
   },
 
   // Item Card
   itemCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     overflow: 'hidden',
-    ...shadows.card,
+    ...shadows.sm,
   },
   itemMain: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    gap: 12,
+    padding: space[3] + 2,
+    gap: space[3],
   },
   itemPhoto: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.m,
-    backgroundColor: colors.surfaceHighlight,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -412,42 +389,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   itemStats: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   itemDays: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   itemDot: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginHorizontal: 6,
+    marginHorizontal: space[1] + 2,
   },
   itemCost: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
   },
   itemPotential: {
     alignItems: 'flex-end',
   },
   potentialValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     letterSpacing: -0.3,
   },
   potentialLabel: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
     marginTop: 1,
   },
@@ -456,9 +433,9 @@ const styles = StyleSheet.create({
   actionSuggestion: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 10,
+    paddingVertical: space[3],
+    paddingHorizontal: space[3] + 2,
+    gap: space[2] + 2,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
   },
@@ -471,8 +448,8 @@ const styles = StyleSheet.create({
   },
   actionText: {
     flex: 1,
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
   },
   actionArrow: {
     marginLeft: 'auto',

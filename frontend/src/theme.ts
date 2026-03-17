@@ -1,7 +1,7 @@
 // Resellr OS Design System
 // A unified, premium, calm design language
 
-import { StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import { StyleSheet, TextStyle, ViewStyle, Platform } from 'react-native';
 
 // ============================================================================
 // COLOR PALETTE
@@ -107,45 +107,39 @@ export const radius = {
 } as const;
 
 // ============================================================================
-// SHADOWS
+// SHADOWS (using boxShadow for modern RN/Expo)
 // ============================================================================
-export const shadows = {
-  none: {},
+const shadowBase = {
   xs: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.04)',
     elevation: 1,
-  },
+  } as ViewStyle,
   sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.06)',
     elevation: 2,
-  },
+  } as ViewStyle,
   md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.08)',
     elevation: 3,
-  },
+  } as ViewStyle,
   lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    boxShadow: '0px 6px 12px rgba(0, 0, 0, 0.1)',
     elevation: 4,
-  },
+  } as ViewStyle,
   xl: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.12)',
     elevation: 5,
-  },
+  } as ViewStyle,
+};
+
+export const shadows = {
+  none: {} as ViewStyle,
+  ...shadowBase,
+  // Legacy aliases for backward compatibility
+  subtle: shadowBase.xs,
+  card: shadowBase.sm,
+  medium: shadowBase.md,
+  strong: shadowBase.lg,
 } as const;
 
 // ============================================================================
@@ -534,4 +528,42 @@ export const chartColors = {
   negative: colors.warning,
   muted: colors.surfaceMuted,
   grid: colors.borderLight,
+};
+
+
+// ============================================================================
+// BACKWARD COMPATIBILITY EXPORTS
+// These aliases maintain compatibility with existing screens during migration
+// ============================================================================
+
+// Legacy borderRadius alias
+export const borderRadius = {
+  ...radius,
+  s: radius.sm,
+  m: radius.md,
+  l: radius.lg,
+  xl: radius.xl,
+  pill: radius.full,
+} as const;
+
+// Status labels for pipeline/inventory
+export const statusLabels: Record<string, string> = {
+  sourced: 'Sourced',
+  intake: 'Intake',
+  photographed: 'Photographed',
+  listed: 'Listed',
+  crosslisted: 'Crosslisted',
+  sold: 'Sold',
+  shipped: 'Shipped',
+  completed: 'Completed',
+};
+
+// Health labels for inventory items
+export const healthLabels: Record<string, { label: string; color: string; bg: string }> = {
+  fresh: { label: 'Fresh', color: colors.success, bg: colors.successLight },
+  needs_listing: { label: 'Needs Listing', color: colors.accent, bg: '#F5F3EF' },
+  incomplete: { label: 'Incomplete', color: colors.textTertiary, bg: colors.surfaceMuted },
+  stale: { label: 'Stale', color: colors.warning, bg: colors.warningLight },
+  dead_stock: { label: 'Dead Stock', color: colors.error, bg: colors.errorLight },
+  sold: { label: 'Sold', color: colors.success, bg: colors.successLight },
 };

@@ -3,16 +3,23 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows, healthLabels } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows, healthConfig } from '../../src/theme';
 import { api } from '../../src/api';
+import { useCurrency } from '../../src/currency';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
+import { Badge, EmptyState } from '../../src/components/UI';
 
 const FILTERS = ['All', 'Listed', 'Sourced', 'Sold'];
 
-// Item Card Component
-function ItemCard({ item, onPress, onQuickSold }: { item: any; onPress: () => void; onQuickSold: () => void }) {
-  const health = healthLabels[item.health] || healthLabels.fresh;
+// Item Card Component - Elegant, scannable design
+function ItemCard({ item, onPress, onQuickSold, formatAmount }: { 
+  item: any; 
+  onPress: () => void; 
+  onQuickSold: () => void;
+  formatAmount: (n: number) => string;
+}) {
+  const health = healthConfig[item.health] || healthConfig.fresh;
   const displayPrice = item.sold_price > 0 ? item.sold_price : item.target_list_price;
   const isSold = ['sold', 'shipped', 'completed'].includes(item.status);
   const isListed = ['listed', 'crosslisted'].includes(item.status);
@@ -26,43 +33,46 @@ function ItemCard({ item, onPress, onQuickSold }: { item: any; onPress: () => vo
       activeOpacity={0.6}
     >
       {/* Photo */}
-      <View style={styles.itemPhotoWrap}>
+      <View style={styles.photoContainer}>
         {hasPhoto ? (
-          <Image source={{ uri: item.photos[0] }} style={styles.itemPhoto} />
+          <Image source={{ uri: item.photos[0] }} style={styles.photo} />
         ) : (
-          <View style={styles.itemPhotoEmpty}>
-            <Feather name="camera" size={16} color={colors.textMuted} />
+          <View style={styles.photoEmpty}>
+            <Feather name="camera" size={16} color={colors.textTertiary} />
           </View>
         )}
-        {/* Health Indicator */}
-        <View style={[styles.healthIndicator, { backgroundColor: health.color }]} />
+        {/* Health dot indicator */}
+        <View style={[styles.healthDot, { backgroundColor: health.color }]} />
       </View>
 
       {/* Content */}
       <View style={styles.itemContent}>
-        <View style={styles.itemHeader}>
-          <View style={styles.itemTitleArea}>
+        {/* Title row */}
+        <View style={styles.titleRow}>
+          <View style={styles.titleArea}>
             <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
             <Text style={styles.itemMeta}>
-              {item.brand}
-              {item.size ? ` · ${item.size}` : ''}
+              {item.brand}{item.size ? ` · ${item.size}` : ''}
             </Text>
           </View>
-          <View style={styles.itemPriceArea}>
-            <Text style={styles.itemPrice}>${displayPrice}</Text>
-            <Text style={[styles.itemProfit, { color: item.net_profit >= 0 ? colors.profit : colors.loss }]}>
-              {item.net_profit >= 0 ? '+' : ''}${item.net_profit}
+          <View style={styles.priceArea}>
+            <Text style={styles.price}>{formatAmount(displayPrice)}</Text>
+            <Text style={[styles.profit, { color: item.net_profit >= 0 ? colors.success : colors.error }]}>
+              {item.net_profit >= 0 ? '+' : ''}{formatAmount(item.net_profit)}
             </Text>
           </View>
         </View>
 
-        <View style={styles.itemFooter}>
-          <View style={[styles.healthBadge, { backgroundColor: health.bg }]}>
-            <Text style={[styles.healthBadgeText, { color: health.color }]}>{health.label}</Text>
-          </View>
-          <View style={styles.itemTags}>
+        {/* Bottom row */}
+        <View style={styles.bottomRow}>
+          <Badge 
+            label={health.label} 
+            variant={item.health === 'fresh' ? 'success' : item.health === 'stale' ? 'warning' : item.health === 'dead_stock' ? 'error' : 'default'}
+            size="sm"
+          />
+          <View style={styles.platforms}>
             {item.platforms?.slice(0, 2).map((p: string) => (
-              <Text key={p} style={styles.platformTag}>
+              <Text key={p} style={styles.platformText}>
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </Text>
             ))}
@@ -94,12 +104,13 @@ function ItemCard({ item, onPress, onQuickSold }: { item: any; onPress: () => vo
 export default function InventoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatAmount } = useCurrency();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('All');
 
-  // Sold Modal State
+  // Modal state
   const [soldModalVisible, setSoldModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
@@ -133,7 +144,7 @@ export default function InventoryScreen() {
       sold_price: soldPrice,
       date_sold: new Date().toISOString(),
     });
-    setToast({ visible: true, message: `Sold for $${soldPrice}! 🎉`, type: 'success' });
+    setToast({ visible: true, message: `Sold for ${formatAmount(soldPrice)}!`, type: 'success' });
     fetchItems();
   };
 
@@ -142,13 +153,14 @@ export default function InventoryScreen() {
       item={item} 
       onPress={() => router.push(`/item/${item.id}`)}
       onQuickSold={() => handleQuickSold(item)}
+      formatAmount={formatAmount}
     />
   );
 
   const ListHeader = () => (
     <View style={styles.headerArea}>
       {/* Title Row */}
-      <View style={styles.titleRow}>
+      <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Inventory</Text>
           <Text style={styles.subtitle}>{items.length} items</Text>
@@ -159,7 +171,7 @@ export default function InventoryScreen() {
           onPress={() => router.push('/quick-add')}
           activeOpacity={0.7}
         >
-          <Feather name="plus" size={20} color="#FFFFFF" />
+          <Feather name="plus" size={20} color={colors.textInverse} />
         </TouchableOpacity>
       </View>
 
@@ -198,22 +210,22 @@ export default function InventoryScreen() {
   // Empty State
   if (items.length === 0) {
     return (
-      <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + 16 }]}>
+      <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + space[4] }]}>
         <ListHeader />
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Feather name="archive" size={28} color={colors.textTertiary} />
-          </View>
-          <Text style={styles.emptyTitle}>No items yet</Text>
-          <Text style={styles.emptyText}>Add your first item to start tracking your inventory</Text>
+        <EmptyState 
+          icon="archive"
+          title="No items yet"
+          description="Add your first item to start tracking your inventory"
+        />
+        <View style={styles.emptyActionContainer}>
           <TouchableOpacity
             testID="empty-add-btn"
-            style={styles.emptyButton}
+            style={styles.emptyAddButton}
             onPress={() => router.push('/quick-add')}
             activeOpacity={0.7}
           >
-            <Feather name="plus" size={18} color="#FFFFFF" />
-            <Text style={styles.emptyButtonText}>Add First Item</Text>
+            <Feather name="plus" size={18} color={colors.textInverse} />
+            <Text style={styles.emptyAddText}>Add First Item</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -222,7 +234,7 @@ export default function InventoryScreen() {
 
   return (
     <>
-      <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + 16 }]}>
+      <View testID="inventory-screen" style={[styles.container, { paddingTop: insets.top + space[4] }]}>
         <FlatList
           data={items}
           renderItem={renderItem}
@@ -241,7 +253,6 @@ export default function InventoryScreen() {
         />
       </View>
 
-      {/* Sold Modal */}
       <SoldModal
         visible={soldModalVisible}
         onClose={() => { setSoldModalVisible(false); setSelectedItem(null); }}
@@ -249,7 +260,6 @@ export default function InventoryScreen() {
         onConfirm={handleSoldConfirm}
       />
 
-      {/* Toast */}
       <Toast
         visible={toast.visible}
         message={toast.message}
@@ -269,111 +279,109 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Loading
   loadingText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginTop: 16,
+    marginTop: space[4],
   },
 
-  // Header Area
+  // Header
   headerArea: {
-    paddingHorizontal: spacing.containerPadding,
-    marginBottom: 16,
+    paddingHorizontal: spacing.screenPadding,
+    marginBottom: space[4],
   },
-  titleRow: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: space[5],
   },
   title: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 32,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['3xl'],
     color: colors.textPrimary,
     letterSpacing: -0.8,
   },
   subtitle: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginTop: 2,
+    marginTop: space[1],
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.textPrimary,
+    width: spacing.touchTarget,
+    height: spacing.touchTarget,
+    borderRadius: spacing.touchTarget / 2,
+    backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.card,
+    ...shadows.sm,
   },
 
   // Filters
   filterList: {
-    marginHorizontal: -spacing.containerPadding,
+    marginHorizontal: -spacing.screenPadding,
   },
   filterContent: {
-    paddingHorizontal: spacing.containerPadding,
-    gap: 8,
+    paddingHorizontal: spacing.screenPadding,
+    gap: space[2],
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: borderRadius.pill,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   filterChipActive: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.brand,
   },
   filterText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   filterTextActive: {
-    color: '#FFFFFF',
+    color: colors.textInverse,
   },
 
   // List
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: space[6],
   },
   separator: {
-    height: 10,
+    height: space[3],
   },
 
   // Item Card
   itemCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.containerPadding,
-    borderRadius: borderRadius.l,
-    padding: 14,
-    gap: 14,
-    ...shadows.card,
+    marginHorizontal: spacing.screenPadding,
+    borderRadius: radius.lg,
+    padding: space[3] + 2,
+    gap: space[3],
+    ...shadows.sm,
   },
-  itemPhotoWrap: {
+  photoContainer: {
     position: 'relative',
   },
-  itemPhoto: {
+  photo: {
     width: 72,
     height: 72,
-    borderRadius: borderRadius.m,
-    backgroundColor: colors.surfaceHighlight,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
   },
-  itemPhotoEmpty: {
+  photoEmpty: {
     width: 72,
     height: 72,
-    borderRadius: borderRadius.m,
-    backgroundColor: colors.surfaceHighlight,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  healthIndicator: {
+  healthDot: {
     position: 'absolute',
     bottom: -2,
     right: -2,
@@ -389,71 +397,62 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  itemHeader: {
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: space[2],
   },
-  itemTitleArea: {
+  titleArea: {
     flex: 1,
-    marginRight: 12,
+    marginRight: space[3],
   },
   itemTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
-    lineHeight: 20,
+    lineHeight: fontSize.md * 1.3,
     marginBottom: 2,
   },
   itemMeta: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 13,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
-  itemPriceArea: {
+  priceArea: {
     alignItems: 'flex-end',
   },
-  itemPrice: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 18,
+  price: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
-  itemProfit: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 12,
+  profit: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
     marginTop: 2,
   },
 
-  // Item Footer
-  itemFooter: {
+  // Bottom Row
+  bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space[2],
   },
-  healthBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: borderRadius.s,
-  },
-  healthBadgeText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 11,
-  },
-  itemTags: {
+  platforms: {
     flexDirection: 'row',
-    gap: 6,
+    gap: space[1],
     flex: 1,
   },
-  platformTag: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 12,
+  platformText: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
   daysText: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
 
@@ -469,50 +468,23 @@ const styles = StyleSheet.create({
   },
 
   // Empty State
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
+  emptyActionContainer: {
     alignItems: 'center',
-    paddingHorizontal: spacing.containerPadding,
-    paddingBottom: 80,
+    paddingHorizontal: spacing.screenPadding,
   },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surfaceHighlight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-    maxWidth: 280,
-  },
-  emptyButton: {
+  emptyAddButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.textPrimary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: borderRadius.pill,
-    ...shadows.card,
+    gap: space[2],
+    backgroundColor: colors.brand,
+    paddingHorizontal: space[6],
+    paddingVertical: space[3] + 2,
+    borderRadius: radius.full,
+    ...shadows.sm,
   },
-  emptyButtonText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+  emptyAddText: {
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
   },
 });

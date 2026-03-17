@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Keyboa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
+import { useCurrency } from '../src/currency';
 import { api } from '../src/api';
 
 const STEPS = [
@@ -19,6 +20,7 @@ const PLATFORMS = ['ebay', 'depop', 'vinted', 'vestiaire', 'poshmark', 'etsy'];
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatAmount, currency } = useCurrency();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -79,7 +81,7 @@ export default function AddItemScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View testID="add-item-screen" style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <View testID="add-item-screen" style={[styles.container, { paddingTop: insets.top + space[2] }]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -223,7 +225,7 @@ export default function AddItemScreen() {
                   <View style={styles.costCol}>
                     <Text style={styles.costLabel}>Purchase</Text>
                     <View style={styles.costInputWrap}>
-                      <Text style={styles.costPrefix}>$</Text>
+                      <Text style={styles.costPrefix}>{currency.symbol}</Text>
                       <TextInput
                         testID="input-purchase"
                         style={styles.costInput}
@@ -239,7 +241,7 @@ export default function AddItemScreen() {
                   <View style={styles.costCol}>
                     <Text style={styles.costLabel}>Shipping</Text>
                     <View style={styles.costInputWrap}>
-                      <Text style={styles.costPrefix}>$</Text>
+                      <Text style={styles.costPrefix}>{currency.symbol}</Text>
                       <TextInput
                         testID="input-ship-cost"
                         style={styles.costInput}
@@ -255,7 +257,7 @@ export default function AddItemScreen() {
                   <View style={styles.costCol}>
                     <Text style={styles.costLabel}>Prep</Text>
                     <View style={styles.costInputWrap}>
-                      <Text style={styles.costPrefix}>$</Text>
+                      <Text style={styles.costPrefix}>{currency.symbol}</Text>
                       <TextInput
                         testID="input-prep-cost"
                         style={styles.costInput}
@@ -270,7 +272,7 @@ export default function AddItemScreen() {
                 </View>
                 <View style={styles.costTotalRow}>
                   <Text style={styles.costTotalLabel}>Total Cost</Text>
-                  <Text style={styles.costTotalValue}>${totalCost.toFixed(2)}</Text>
+                  <Text style={styles.costTotalValue}>{formatAmount(totalCost)}</Text>
                 </View>
               </View>
 
@@ -298,7 +300,7 @@ export default function AddItemScreen() {
               <View style={styles.targetPriceCard}>
                 <Text style={styles.targetPriceLabel}>Target List Price</Text>
                 <View style={styles.targetPriceInputRow}>
-                  <Text style={styles.targetPricePrefix}>$</Text>
+                  <Text style={styles.targetPricePrefix}>{currency.symbol}</Text>
                   <TextInput
                     testID="input-target-price"
                     style={styles.targetPriceInput}
@@ -313,7 +315,7 @@ export default function AddItemScreen() {
                   <View style={styles.profitPreview}>
                     <Text style={styles.profitPreviewLabel}>Est. Profit</Text>
                     <Text style={[styles.profitPreviewValue, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
-                      ${potentialProfit.toFixed(2)}
+                      {formatAmount(potentialProfit)}
                     </Text>
                   </View>
                 )}
@@ -342,28 +344,28 @@ export default function AddItemScreen() {
                 <Text style={styles.summaryTitle}>Summary</Text>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total Cost</Text>
-                  <Text style={styles.summaryValue}>${totalCost.toFixed(2)}</Text>
+                  <Text style={styles.summaryValue}>{formatAmount(totalCost)}</Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Target Price</Text>
-                  <Text style={styles.summaryValue}>${parseFloat(targetPrice) || 0}</Text>
+                  <Text style={styles.summaryValue}>{formatAmount(parseFloat(targetPrice) || 0)}</Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabelBold}>Est. Profit</Text>
                   <Text style={[styles.summaryValueBold, { color: potentialProfit >= 0 ? colors.success : colors.error }]}>
-                    ${potentialProfit.toFixed(2)}
+                    {formatAmount(potentialProfit)}
                   </Text>
                 </View>
               </View>
             </View>
           )}
 
-          <View style={{ height: 20 }} />
+          <View style={{ height: space[5] }} />
         </ScrollView>
 
         {/* Bottom Actions */}
-        <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, space[4]) }]}>
           {step > 0 && (
             <TouchableOpacity
               testID="prev-step-btn"
@@ -383,7 +385,7 @@ export default function AddItemScreen() {
               activeOpacity={0.7}
             >
               <Text style={styles.nextText}>Next</Text>
-              <Feather name="arrow-right" size={18} color="#FFFFFF" />
+              <Feather name="arrow-right" size={18} color={colors.textInverse} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -393,7 +395,7 @@ export default function AddItemScreen() {
               disabled={saving}
               activeOpacity={0.7}
             >
-              <Feather name="check" size={18} color="#FFFFFF" />
+              <Feather name="check" size={18} color={colors.textInverse} />
               <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Item'}</Text>
             </TouchableOpacity>
           )}
@@ -404,9 +406,7 @@ export default function AddItemScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
+  flex: { flex: 1 },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -417,39 +417,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.containerPadding,
-    marginBottom: 20,
+    paddingHorizontal: spacing.screenPadding,
+    marginBottom: space[5],
   },
   closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: spacing.touchTarget,
+    height: spacing.touchTarget,
+    borderRadius: spacing.touchTarget / 2,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   headerTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 17,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
   },
   draftText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 15,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
     color: colors.accent,
   },
 
   // Steps
   stepsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.containerPadding,
-    gap: 12,
-    marginBottom: 28,
+    paddingHorizontal: spacing.screenPadding,
+    gap: space[3],
+    marginBottom: space[7],
   },
   stepItem: {
     flex: 1,
-    gap: 8,
+    gap: space[2],
   },
   stepBar: {
     height: 4,
@@ -457,70 +457,68 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   stepBarActive: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.brand,
   },
   stepLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: space[1] + 2,
   },
   stepLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
   stepLabelActive: {
-    fontFamily: 'Mulish_700Bold',
+    fontFamily: fontFamily.bold,
     color: colors.textPrimary,
   },
 
   // Scroll
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   stepContent: {
-    paddingHorizontal: spacing.containerPadding,
-    gap: 20,
+    paddingHorizontal: spacing.screenPadding,
+    gap: space[5],
   },
   stepTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 26,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['2xl'] + 2,
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   stepDesc: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
     color: colors.textSecondary,
-    marginTop: -12,
-    marginBottom: 4,
+    marginTop: -space[3],
+    marginBottom: space[1],
   },
 
   // Fields
   field: {
-    gap: 10,
+    gap: space[2] + 2,
   },
   fieldLabel: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   textInput: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.m,
+    borderRadius: radius.md,
     height: spacing.inputHeight,
-    paddingHorizontal: 16,
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 15,
+    paddingHorizontal: space[4],
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   textArea: {
     height: 100,
-    paddingTop: 14,
+    paddingTop: space[3] + 2,
     textAlignVertical: 'top',
   },
 
@@ -528,43 +526,43 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space[2],
   },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: borderRadius.pill,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   chipActive: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: colors.brand,
   },
   chipText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: colors.textInverse,
   },
 
   // Row
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: space[3],
   },
   halfField: {
     flex: 1,
-    gap: 10,
+    gap: space[2] + 2,
   },
 
   // Cost Card
   costCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     padding: spacing.cardPadding,
-    ...shadows.card,
+    ...shadows.sm,
   },
   costRow: {
     flexDirection: 'row',
@@ -576,27 +574,27 @@ const styles = StyleSheet.create({
   costDivider: {
     width: 1,
     backgroundColor: colors.divider,
-    marginHorizontal: 8,
+    marginHorizontal: space[2],
   },
   costLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 12,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: space[2],
   },
   costInputWrap: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   costPrefix: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 18,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.lg,
     color: colors.textTertiary,
     marginRight: 2,
   },
   costInput: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 24,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['2xl'],
     color: colors.textPrimary,
     padding: 0,
     minWidth: 40,
@@ -608,17 +606,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
-    marginTop: 16,
-    paddingTop: 14,
+    marginTop: space[4],
+    paddingTop: space[3] + 2,
   },
   costTotalLabel: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   costTotalValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
@@ -626,30 +624,30 @@ const styles = StyleSheet.create({
   // Target Price Card
   targetPriceCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     padding: spacing.cardPaddingLarge,
     alignItems: 'center',
-    ...shadows.card,
+    ...shadows.sm,
   },
   targetPriceLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: space[2],
   },
   targetPriceInputRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   targetPricePrefix: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 28,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize['2xl'] + 4,
     color: colors.textTertiary,
-    marginRight: 4,
+    marginRight: space[1],
   },
   targetPriceInput: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 48,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['4xl'] + 8,
     color: colors.textPrimary,
     padding: 0,
     minWidth: 100,
@@ -659,72 +657,72 @@ const styles = StyleSheet.create({
   profitPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
-    paddingTop: 14,
+    gap: space[2],
+    marginTop: space[3] + 2,
+    paddingTop: space[3] + 2,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
   },
   profitPreviewLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   profitPreviewValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     letterSpacing: -0.3,
   },
 
   // Summary Card
   summaryCard: {
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.l,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
     padding: spacing.cardPadding,
   },
   summaryTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: space[3],
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: space[1] + 2,
   },
   summaryLabel: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   summaryValue: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
   summaryDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
-    marginVertical: 8,
+    marginVertical: space[2],
   },
   summaryLabelBold: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
   },
   summaryValueBold: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 18,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     letterSpacing: -0.3,
   },
 
   // Bottom
   bottom: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: spacing.containerPadding,
-    paddingTop: 12,
+    gap: space[3],
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: space[3],
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     backgroundColor: colors.background,
@@ -734,15 +732,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: space[2],
     height: spacing.buttonHeight,
-    borderRadius: borderRadius.pill,
+    borderRadius: radius.full,
     backgroundColor: colors.surface,
-    ...shadows.subtle,
+    ...shadows.xs,
   },
   prevText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 15,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
     color: colors.textSecondary,
   },
   nextBtn: {
@@ -750,31 +748,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: space[2],
     height: spacing.buttonHeight,
-    borderRadius: borderRadius.pill,
-    backgroundColor: colors.textPrimary,
-    ...shadows.medium,
+    borderRadius: radius.full,
+    backgroundColor: colors.brand,
+    ...shadows.md,
   },
   nextText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
   },
   saveBtn: {
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: space[2],
     height: spacing.buttonHeight,
-    borderRadius: borderRadius.pill,
+    borderRadius: radius.full,
     backgroundColor: colors.success,
-    ...shadows.medium,
+    ...shadows.md,
   },
   saveText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
   },
 });

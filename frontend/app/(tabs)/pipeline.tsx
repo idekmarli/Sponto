@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows, statusLabels } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows, statusConfig } from '../../src/theme';
 import { api } from '../../src/api';
+import { EmptyState } from '../../src/components/UI';
 
 const STAGES = [
   { key: 'sourced', icon: 'shopping-bag', color: colors.accent },
@@ -12,12 +13,12 @@ const STAGES = [
   { key: 'photographed', icon: 'camera', color: colors.accent },
   { key: 'listed', icon: 'tag', color: colors.success },
   { key: 'crosslisted', icon: 'copy', color: colors.success },
-  { key: 'sold', icon: 'dollar-sign', color: colors.profit },
-  { key: 'shipped', icon: 'truck', color: colors.profit },
+  { key: 'sold', icon: 'dollar-sign', color: colors.success },
+  { key: 'shipped', icon: 'truck', color: colors.success },
   { key: 'completed', icon: 'check-circle', color: colors.textTertiary },
 ];
 
-// Pipeline Item Card
+// Pipeline Item Card - Compact, scannable
 function PipelineCard({ item, onPress }: { item: any; onPress: () => void }) {
   const daysInfo = item.days_listed ?? item.days_in_inventory;
   
@@ -60,7 +61,13 @@ export default function PipelineScreen() {
 
   const fetchPipeline = useCallback(async () => {
     try {
-      setPipeline(await api.getPipeline());
+      const data = await api.getPipeline();
+      // API returns { stage: { items: [], count: N, ... } } - extract items array
+      const normalized: Record<string, any[]> = {};
+      for (const key of Object.keys(data)) {
+        normalized[key] = data[key]?.items || [];
+      }
+      setPipeline(normalized);
     } catch (e) {
       console.error(e);
     } finally {
@@ -73,7 +80,6 @@ export default function PipelineScreen() {
     fetchPipeline();
   }, [fetchPipeline]);
 
-  // Loading State
   if (loading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
@@ -90,7 +96,7 @@ export default function PipelineScreen() {
     <ScrollView
       testID="pipeline-screen"
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[4] }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -132,7 +138,7 @@ export default function PipelineScreen() {
               <View key={stage.key} style={styles.progressLegendItem}>
                 <View style={[styles.progressDot, { backgroundColor: stage.color }]} />
                 <Text style={styles.progressLegendText}>
-                  {(pipeline[stage.key] || []).length} {statusLabels[stage.key]}
+                  {(pipeline[stage.key] || []).length} {statusConfig[stage.key]?.label || stage.key}
                 </Text>
               </View>
             ))}
@@ -142,13 +148,11 @@ export default function PipelineScreen() {
 
       {/* Empty State */}
       {totalItems === 0 && (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Feather name="layers" size={28} color={colors.textTertiary} />
-          </View>
-          <Text style={styles.emptyTitle}>No items in pipeline</Text>
-          <Text style={styles.emptyText}>Add items to see them flow through your workflow</Text>
-        </View>
+        <EmptyState
+          icon="layers"
+          title="No items in pipeline"
+          description="Add items to see them flow through your workflow"
+        />
       )}
 
       {/* Stages */}
@@ -164,7 +168,7 @@ export default function PipelineScreen() {
                 <View style={[styles.stageIconWrap, { backgroundColor: stage.color + '15' }]}>
                   <Feather name={stage.icon as any} size={14} color={stage.color} />
                 </View>
-                <Text style={styles.stageName}>{statusLabels[stage.key]}</Text>
+                <Text style={styles.stageName}>{statusConfig[stage.key]?.label || stage.key}</Text>
               </View>
               <View style={[styles.stageCountBadge, { backgroundColor: stage.color + '15' }]}>
                 <Text style={[styles.stageCountText, { color: stage.color }]}>{items.length}</Text>
@@ -189,7 +193,7 @@ export default function PipelineScreen() {
         );
       })}
 
-      <View style={{ height: 32 }} />
+      <View style={{ height: space[8] }} />
     </ScrollView>
   );
 }
@@ -200,47 +204,45 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingLeft: spacing.containerPadding,
+    paddingLeft: spacing.screenPadding,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Loading
   loadingText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginTop: 16,
+    marginTop: space[4],
   },
 
   // Header
   header: {
-    paddingRight: spacing.containerPadding,
-    marginBottom: spacing.l,
+    paddingRight: spacing.screenPadding,
+    marginBottom: space[6],
   },
   title: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 32,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['3xl'],
     color: colors.textPrimary,
     letterSpacing: -0.8,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   subtitle: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
   },
 
   // Progress Card
   progressCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
+    borderRadius: radius.lg,
     padding: spacing.cardPadding,
-    marginRight: spacing.containerPadding,
-    marginBottom: spacing.sectionGap,
-    ...shadows.card,
+    marginRight: spacing.screenPadding,
+    marginBottom: space[8],
+    ...shadows.sm,
   },
   progressBar: {
     flexDirection: 'row',
@@ -248,7 +250,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
     gap: 2,
-    marginBottom: 14,
+    marginBottom: space[3] + 2,
   },
   progressSegment: {
     minWidth: 8,
@@ -256,12 +258,12 @@ const styles = StyleSheet.create({
   progressLegend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: space[4],
   },
   progressLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: space[2],
   },
   progressDot: {
     width: 8,
@@ -269,54 +271,26 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   progressLegendText: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 13,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
-  },
-
-  // Empty State
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 64,
-    paddingRight: spacing.containerPadding,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surfaceHighlight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 
   // Stage Section
   stageSection: {
-    marginBottom: spacing.l,
+    marginBottom: space[6],
   },
   stageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingRight: spacing.containerPadding,
-    marginBottom: 14,
+    paddingRight: spacing.screenPadding,
+    marginBottom: space[3] + 2,
   },
   stageLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space[2] + 2,
   },
   stageIconWrap: {
     width: 32,
@@ -326,71 +300,71 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stageName: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
   },
   stageCountBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: borderRadius.pill,
+    paddingHorizontal: space[2] + 2,
+    paddingVertical: space[1],
+    borderRadius: radius.full,
   },
   stageCountText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 13,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
   },
 
   // Stage Cards
   stageCards: {
-    gap: 12,
-    paddingRight: spacing.containerPadding,
+    gap: space[3],
+    paddingRight: spacing.screenPadding,
   },
 
   // Pipeline Card
   pipeCard: {
     width: 156,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
-    padding: 14,
-    ...shadows.card,
+    borderRadius: radius.lg,
+    padding: space[3] + 2,
+    ...shadows.sm,
   },
   pipePhoto: {
     width: '100%',
     height: 80,
-    borderRadius: borderRadius.m,
-    backgroundColor: colors.surfaceHighlight,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: space[2] + 2,
   },
   pipeTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 14,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
-    lineHeight: 18,
+    lineHeight: fontSize.sm * 1.3,
     marginBottom: 2,
   },
   pipeBrand: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 12,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: space[2],
   },
   pipePlatforms: {
     flexDirection: 'row',
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   pipePlatformText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
   pipeDays: {
     marginTop: 'auto',
   },
   pipeDaysText: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
   },
 });

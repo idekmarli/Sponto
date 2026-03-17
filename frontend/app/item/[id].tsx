@@ -3,13 +3,17 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows, statusLabels, healthLabels } from '../../src/theme';
+import { colors, space, radius, fontFamily, fontSize, spacing, shadows, statusConfig, healthConfig } from '../../src/theme';
 import { api } from '../../src/api';
+import { useCurrency } from '../../src/currency';
 import { SoldModal } from '../../src/components/SoldModal';
 import { Toast } from '../../src/components/Toast';
+import { Badge, Divider } from '../../src/components/UI';
 
 // Financial Row Component
-function FinancialRow({ label, value, highlight = false, bold = false }: { label: string; value: string; highlight?: boolean; bold?: boolean }) {
+function FinancialRow({ label, value, highlight = false, bold = false }: { 
+  label: string; value: string; highlight?: boolean; bold?: boolean 
+}) {
   return (
     <View style={[finStyles.row, highlight && finStyles.rowHighlight]}>
       <Text style={[finStyles.label, bold && finStyles.labelBold]}>{label}</Text>
@@ -26,7 +30,7 @@ function getNextStep(status: string): { key: string; label: string; icon: string
     photographed: { key: 'listed', label: 'Mark Listed', icon: 'tag', color: colors.success },
     listed: { key: 'sold', label: 'Mark Sold', icon: 'dollar-sign', color: colors.success },
     crosslisted: { key: 'sold', label: 'Mark Sold', icon: 'dollar-sign', color: colors.success },
-    sold: { key: 'shipped', label: 'Mark Shipped', icon: 'truck', color: colors.textPrimary },
+    sold: { key: 'shipped', label: 'Mark Shipped', icon: 'truck', color: colors.brand },
     shipped: { key: 'completed', label: 'Complete', icon: 'check-circle', color: colors.success },
   };
   return steps[status] || null;
@@ -35,12 +39,12 @@ function getNextStep(status: string): { key: string; label: string; icon: string
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { formatAmount } = useCurrency();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  // Modal state
   const [soldModalVisible, setSoldModalVisible] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as 'success' | 'error' });
 
@@ -59,12 +63,9 @@ export default function ItemDetailScreen() {
     try {
       const updates: any = { status, ...additionalData };
       if (status === 'listed') updates.date_listed = new Date().toISOString();
-      if (status === 'shipped' || status === 'completed') {
-        // Keep existing dates
-      }
       const updated = await api.updateItem(id!, updates);
       setItem(updated);
-      setToast({ visible: true, message: `Marked as ${statusLabels[status] || status}`, type: 'success' });
+      setToast({ visible: true, message: `Marked as ${statusConfig[status]?.label || status}`, type: 'success' });
     } catch (e) {
       console.error(e);
       setToast({ visible: true, message: 'Failed to update', type: 'error' });
@@ -77,7 +78,6 @@ export default function ItemDetailScreen() {
     if (!item) return;
     const next = getNextStep(item.status);
     if (!next) return;
-
     if (next.key === 'sold') {
       setSoldModalVisible(true);
     } else {
@@ -87,7 +87,7 @@ export default function ItemDetailScreen() {
 
   const handleSoldConfirm = async (soldPrice: number) => {
     await updateStatus('sold', { sold_price: soldPrice, date_sold: new Date().toISOString() });
-    setToast({ visible: true, message: `Sold for $${soldPrice}! 🎉`, type: 'success' });
+    setToast({ visible: true, message: `Sold for ${formatAmount(soldPrice)}!`, type: 'success' });
   };
 
   // Loading State
@@ -116,7 +116,7 @@ export default function ItemDetailScreen() {
     );
   }
 
-  const health = healthLabels[item.health] || healthLabels.fresh;
+  const health = healthConfig[item.health] || healthConfig.fresh;
   const hasPhoto = item.photos?.length > 0;
   const isSold = ['sold', 'shipped', 'completed'].includes(item.status);
   const isCompleted = item.status === 'completed';
@@ -127,7 +127,7 @@ export default function ItemDetailScreen() {
       <ScrollView
         testID="item-detail-screen"
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + space[2] }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Navigation */}
@@ -166,16 +166,15 @@ export default function ItemDetailScreen() {
         {/* Title & Status */}
         <Text style={styles.itemTitle}>{item.title}</Text>
         <View style={styles.badges}>
-          <View style={[styles.badge, { backgroundColor: health.bg }]}>
-            <View style={[styles.badgeDot, { backgroundColor: health.color }]} />
-            <Text style={[styles.badgeText, { color: health.color }]}>{health.label}</Text>
-          </View>
-          <View style={[styles.badge, { backgroundColor: colors.surfaceHighlight }]}>
-            <Text style={styles.badgeText}>{statusLabels[item.status] || item.status}</Text>
-          </View>
+          <Badge 
+            label={health.label} 
+            variant={item.health === 'fresh' ? 'success' : item.health === 'stale' ? 'warning' : item.health === 'dead_stock' ? 'error' : 'default'}
+            dot
+          />
+          <Badge label={statusConfig[item.status]?.label || item.status} />
         </View>
 
-        {/* Primary Action - Next Step */}
+        {/* Primary Action */}
         {nextStep && !isCompleted && (
           <TouchableOpacity
             testID={`action-${nextStep.key}`}
@@ -184,13 +183,13 @@ export default function ItemDetailScreen() {
             disabled={updating}
             activeOpacity={0.7}
           >
-            <Feather name={nextStep.icon as any} size={20} color="#FFFFFF" />
+            <Feather name={nextStep.icon as any} size={20} color={colors.textInverse} />
             <Text style={styles.primaryActionText}>{nextStep.label}</Text>
-            {updating && <ActivityIndicator size="small" color="#FFFFFF" style={{ marginLeft: 8 }} />}
+            {updating && <ActivityIndicator size="small" color={colors.textInverse} style={{ marginLeft: space[2] }} />}
           </TouchableOpacity>
         )}
 
-        {/* Completed Badge */}
+        {/* Completed Banner */}
         {isCompleted && (
           <View style={styles.completedBanner}>
             <Feather name="check-circle" size={20} color={colors.success} />
@@ -235,27 +234,27 @@ export default function ItemDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Financials</Text>
           <View style={styles.card}>
-            <FinancialRow label="Purchase Price" value={`$${item.purchase_price || 0}`} />
-            <FinancialRow label="Total Cost Basis" value={`$${item.total_cost_basis || 0}`} highlight bold />
-            <FinancialRow label="Target List Price" value={`$${item.target_list_price || 0}`} />
+            <FinancialRow label="Purchase Price" value={formatAmount(item.purchase_price || 0)} />
+            <FinancialRow label="Total Cost Basis" value={formatAmount(item.total_cost_basis || 0)} highlight bold />
+            <FinancialRow label="Target List Price" value={formatAmount(item.target_list_price || 0)} />
             {item.sold_price > 0 && (
               <>
-                <View style={styles.cardDivider} />
-                <FinancialRow label="Sold Price" value={`$${item.sold_price}`} />
-                <FinancialRow label="Fees" value={`-$${item.fees || 0}`} />
+                <Divider />
+                <FinancialRow label="Sold Price" value={formatAmount(item.sold_price)} />
+                <FinancialRow label="Fees" value={`-${formatAmount(item.fees || 0)}`} />
               </>
             )}
             <View style={styles.profitRow}>
               <Text style={styles.profitLabel}>Net Profit</Text>
               <Text style={[styles.profitValue, { color: item.net_profit >= 0 ? colors.success : colors.warning }]}>
-                ${item.net_profit}
+                {formatAmount(item.net_profit)}
               </Text>
             </View>
             <FinancialRow label="ROI" value={`${item.roi}%`} />
           </View>
         </View>
 
-        {/* Lifecycle */}
+        {/* Timeline */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Timeline</Text>
           <View style={styles.timelineCard}>
@@ -295,14 +294,14 @@ export default function ItemDetailScreen() {
         </View>
 
         {/* Notes */}
-        {item.notes ? (
+        {item.notes && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Notes</Text>
             <View style={styles.card}>
               <Text style={styles.notesText}>{item.notes}</Text>
             </View>
           </View>
-        ) : null}
+        )}
 
         {/* Secondary Actions */}
         {!isCompleted && (
@@ -329,10 +328,9 @@ export default function ItemDetailScreen() {
           </View>
         )}
 
-        <View style={{ height: 48 }} />
+        <View style={{ height: space[12] }} />
       </ScrollView>
 
-      {/* Sold Modal */}
       <SoldModal
         visible={soldModalVisible}
         onClose={() => setSoldModalVisible(false)}
@@ -340,7 +338,6 @@ export default function ItemDetailScreen() {
         onConfirm={handleSoldConfirm}
       />
 
-      {/* Toast */}
       <Toast
         visible={toast.visible}
         message={toast.message}
@@ -356,31 +353,31 @@ const finStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: space[2] + 2,
   },
   rowHighlight: {
-    backgroundColor: colors.surfaceHighlight,
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-    borderRadius: borderRadius.m,
+    backgroundColor: colors.surfaceMuted,
+    marginHorizontal: -space[4],
+    paddingHorizontal: space[4],
+    borderRadius: radius.md,
   },
   label: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   labelBold: {
-    fontFamily: 'Mulish_700Bold',
+    fontFamily: fontFamily.bold,
     color: colors.textPrimary,
   },
   value: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
   valueBold: {
-    fontFamily: 'SpaceMono_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.monoBold,
+    fontSize: fontSize.md,
   },
 });
 
@@ -390,19 +387,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: spacing.containerPadding,
+    paddingHorizontal: spacing.screenPadding,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Loading
   loadingText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
-    marginTop: 16,
+    marginTop: space[4],
   },
 
   // Error
@@ -410,107 +405,89 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.surfaceHighlight,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: space[5],
   },
   errorTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 20,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl,
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: space[2],
   },
   errorText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 15,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.md,
     color: colors.textSecondary,
-    marginBottom: 24,
+    marginBottom: space[6],
   },
   backBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: borderRadius.pill,
+    backgroundColor: colors.brand,
+    paddingHorizontal: space[8],
+    paddingVertical: space[3] + 2,
+    borderRadius: radius.full,
   },
   backBtnText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
   },
 
   // Navigation
   nav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: space[4],
   },
   navBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: spacing.touchTarget,
+    height: spacing.touchTarget,
+    borderRadius: spacing.touchTarget / 2,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.subtle,
+    ...shadows.xs,
   },
 
   // Photo
   photoContainer: {
-    marginBottom: spacing.m,
+    marginBottom: space[4],
   },
   photo: {
     width: '100%',
     height: 200,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.surfaceHighlight,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceMuted,
   },
   photoEmpty: {
     width: '100%',
     height: 160,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.surfaceHighlight,
+    borderRadius: radius.xl,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: space[2],
   },
   photoEmptyText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
   },
 
   // Title & Badges
   itemTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 26,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize['2xl'] + 2,
     color: colors.textPrimary,
     letterSpacing: -0.5,
-    lineHeight: 32,
-    marginBottom: 12,
+    lineHeight: fontSize['2xl'] * 1.3,
+    marginBottom: space[3],
   },
   badges: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: spacing.m,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: borderRadius.pill,
-  },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  badgeText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 13,
-    color: colors.textSecondary,
+    gap: space[2],
+    marginBottom: space[4],
   },
 
   // Primary Action
@@ -518,16 +495,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    borderRadius: borderRadius.pill,
-    paddingVertical: 16,
-    marginBottom: spacing.m,
-    ...shadows.medium,
+    gap: space[2] + 2,
+    borderRadius: radius.full,
+    paddingVertical: space[4],
+    marginBottom: space[4],
+    ...shadows.md,
   },
   primaryActionText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
+    color: colors.textInverse,
   },
 
   // Completed Banner
@@ -535,87 +512,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: space[2] + 2,
     backgroundColor: colors.successLight,
-    borderRadius: borderRadius.l,
-    paddingVertical: 14,
-    marginBottom: spacing.m,
+    borderRadius: radius.lg,
+    paddingVertical: space[3] + 2,
+    marginBottom: space[4],
   },
   completedText: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.success,
   },
 
   // Quick Info
   quickInfoRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: spacing.m,
+    gap: space[3],
+    marginBottom: space[4],
   },
   quickInfoItem: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.m,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    ...shadows.subtle,
+    borderRadius: radius.md,
+    paddingVertical: space[3],
+    paddingHorizontal: space[3] + 2,
+    ...shadows.xs,
   },
   quickInfoLabel: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 11,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   quickInfoValue: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
 
   // Platforms
   platformsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: space[2],
     flexWrap: 'wrap',
-    marginBottom: spacing.l,
+    marginBottom: space[6],
   },
   platformChip: {
-    backgroundColor: colors.surfaceHighlight,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: borderRadius.pill,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: space[3] + 2,
+    paddingVertical: space[2],
+    borderRadius: radius.full,
   },
   platformText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
 
   // Sections
   section: {
-    marginBottom: spacing.l,
+    marginBottom: space[6],
   },
   sectionTitle: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 16,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.lg,
     color: colors.textPrimary,
     letterSpacing: -0.2,
-    marginBottom: 12,
+    marginBottom: space[3],
   },
 
   // Card
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    ...shadows.subtle,
-  },
-  cardDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.divider,
-    marginVertical: 4,
+    borderRadius: radius.lg,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
+    ...shadows.xs,
   },
 
   // Profit Row
@@ -623,34 +595,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: space[3],
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.divider,
-    marginTop: 4,
+    marginTop: space[1],
   },
   profitLabel: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 15,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
   },
   profitValue: {
-    fontFamily: 'Mulish_700Bold',
-    fontSize: 22,
+    fontFamily: fontFamily.bold,
+    fontSize: fontSize.xl + 2,
     letterSpacing: -0.5,
   },
 
   // Timeline
   timelineCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.l,
-    padding: 16,
-    ...shadows.subtle,
+    borderRadius: radius.lg,
+    padding: space[4],
+    ...shadows.xs,
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
+    gap: space[3],
+    marginBottom: space[3] + 2,
   },
   timelineDot: {
     width: 12,
@@ -663,57 +635,57 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   timelineLabel: {
-    fontFamily: 'Mulish_500Medium',
-    fontSize: 14,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   timelineValue: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 13,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
   },
   timelineSummary: {
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.m,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginTop: 4,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    paddingVertical: space[2] + 2,
+    paddingHorizontal: space[3] + 2,
+    marginTop: space[1],
   },
   timelineSummaryText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 13,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
     textAlign: 'center',
   },
 
   // Notes
   notesText: {
-    fontFamily: 'Mulish_400Regular',
-    fontSize: 14,
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
-    lineHeight: 22,
-    paddingVertical: 8,
+    lineHeight: fontSize.sm * 1.6,
+    paddingVertical: space[2],
   },
 
   // Secondary Actions
   secondaryActions: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: spacing.m,
+    gap: space[2] + 2,
+    marginBottom: space[4],
   },
   secondaryBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: borderRadius.l,
-    paddingVertical: 14,
+    gap: space[2],
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    paddingVertical: space[3] + 2,
   },
   secondaryBtnText: {
-    fontFamily: 'Mulish_600SemiBold',
-    fontSize: 14,
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
 });
