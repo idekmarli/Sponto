@@ -234,27 +234,50 @@ export default function PipelineScreen() {
           <View style={styles.progressBar}>
             {STAGES.map((stage, i) => {
               const count = (pipeline[stage.key] || []).length;
-              if (count === 0) return null;
+              // Show all stages, even empty ones with minimum width
+              const minFlex = count === 0 ? 0.3 : count;
               return (
                 <View
                   key={stage.key}
                   style={[
                     styles.progressSegment,
-                    { flex: count, backgroundColor: stage.color },
-                    i === 0 && { borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
+                    { 
+                      flex: minFlex, 
+                      backgroundColor: count === 0 ? stage.color + '30' : stage.color,
+                    },
+                    i === 0 && { borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
+                    i === STAGES.length - 1 && { borderTopRightRadius: 6, borderBottomRightRadius: 6 },
                   ]}
                 />
               );
             })}
           </View>
+          {/* Full Legend - All stages */}
           <View style={styles.progressLegend}>
-            {STAGES.filter(st => (pipeline[st.key] || []).length > 0).slice(0, 4).map(stage => (
-              <View key={stage.key} style={styles.progressLegendItem}>
-                <View style={[styles.progressDot, { backgroundColor: stage.color }]} />
-                <Text style={styles.progressLegendText}>
-                  {(pipeline[stage.key] || []).length} {statusConfig[stage.key]?.label || stage.key}
-                </Text>
-              </View>
+            {STAGES.map(stage => {
+              const count = (pipeline[stage.key] || []).length;
+              return (
+                <View key={stage.key} style={styles.progressLegendItem}>
+                  <View style={[
+                    styles.progressDot, 
+                    { backgroundColor: count === 0 ? stage.color + '50' : stage.color }
+                  ]} />
+                  <Text style={[
+                    styles.progressLegendText,
+                    count === 0 && styles.progressLegendTextEmpty
+                  ]}>
+                    {count}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+          {/* Stage Labels */}
+          <View style={styles.progressLabels}>
+            {STAGES.map(stage => (
+              <Text key={stage.key} style={styles.progressLabelText} numberOfLines={1}>
+                {statusConfig[stage.key]?.label?.split(' ')[0] || stage.key}
+              </Text>
             ))}
           </View>
         </View>
@@ -430,39 +453,55 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.cardPadding,
     marginRight: spacing.screenPadding,
-    marginBottom: space[8],
+    marginBottom: space[6],
     ...shadows.sm,
   },
   progressBar: {
     flexDirection: 'row',
-    height: 8,
-    borderRadius: 4,
+    height: 12,
+    borderRadius: 6,
     overflow: 'hidden',
     gap: 2,
-    marginBottom: space[3] + 2,
+    marginBottom: space[3],
   },
   progressSegment: {
-    minWidth: 8,
+    minWidth: 6,
   },
   progressLegend: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: space[4],
+    justifyContent: 'space-between',
+    marginBottom: space[1],
   },
   progressLegendItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: space[2],
+    flex: 1,
   },
   progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginBottom: 4,
   },
   progressLegendText: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.bold,
     fontSize: fontSize.sm,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+  },
+  progressLegendTextEmpty: {
+    color: colors.textTertiary,
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressLabelText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: 9,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
 
   // Stage Section
