@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://sponto-production.up.railway.app';
 
 async function request(path: string, options?: RequestInit) {
   const url = `${BACKEND_URL}/api${path}`;
