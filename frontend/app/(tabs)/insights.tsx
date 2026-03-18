@@ -94,6 +94,7 @@ export default function InsightsScreen() {
   // Export functions
   const handleExportInventory = async () => {
     setExporting(true);
+    setToast({ visible: true, message: 'Preparing export...', type: 'success' });
     try {
       const items = await api.getItems();
       const success = await exportToCSV({
@@ -102,9 +103,9 @@ export default function InsightsScreen() {
         columns: INVENTORY_COLUMNS,
       });
       if (success) {
-        setToast({ visible: true, message: 'Inventory exported successfully', type: 'success' });
+        setToast({ visible: true, message: 'Export ready! Choose where to save.', type: 'success' });
       } else {
-        setToast({ visible: true, message: 'Export failed', type: 'error' });
+        setToast({ visible: true, message: 'Sharing not available on this device', type: 'error' });
       }
     } catch (e) {
       console.error('Export error:', e);
@@ -116,6 +117,7 @@ export default function InsightsScreen() {
 
   const handleExportSales = async () => {
     setExporting(true);
+    setToast({ visible: true, message: 'Preparing export...', type: 'success' });
     try {
       const items = await api.getItems({ status: 'sold' });
       // Add ROI calculation to each item
@@ -129,9 +131,9 @@ export default function InsightsScreen() {
         columns: SALES_COLUMNS,
       });
       if (success) {
-        setToast({ visible: true, message: 'Sales data exported successfully', type: 'success' });
+        setToast({ visible: true, message: 'Export ready! Choose where to save.', type: 'success' });
       } else {
-        setToast({ visible: true, message: 'Export failed', type: 'error' });
+        setToast({ visible: true, message: 'Sharing not available on this device', type: 'error' });
       }
     } catch (e) {
       console.error('Export error:', e);
