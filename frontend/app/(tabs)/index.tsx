@@ -286,11 +286,15 @@ export default function HomeScreen() {
             <View style={[styles.heroDivider, { backgroundColor: colors.border }]} />
             <View style={styles.heroMetric}>
               <Text style={[styles.heroLabel, { color: colors.textTertiary }]}>MONTHLY PROFIT</Text>
-              <Text style={[styles.heroValue, { color: metrics.monthly_profit > 0 ? colors.success : colors.textPrimary }]}>{formatAmountCompact(metrics.monthly_profit || 0)}</Text>
+              <Text style={[styles.heroValue, { color: metrics.monthly_profit >= 0 ? colors.success : colors.error }]}>{formatAmountCompact(metrics.monthly_profit || 0)}</Text>
               <View style={styles.heroSubRow}>
-                {metrics.monthly_profit > 0 && <Feather name="trending-up" size={12} color={colors.success} />}
-                <Text style={[styles.heroSub, { color: metrics.monthly_profit > 0 ? colors.success : colors.textTertiary }]}>
-                  {metrics.monthly_profit > 0 ? `${metrics.avg_roi || 0}% ROI` : '—'}
+                <Feather 
+                  name={metrics.avg_roi >= 0 ? "trending-up" : "trending-down"} 
+                  size={12} 
+                  color={metrics.avg_roi >= 0 ? colors.success : colors.error} 
+                />
+                <Text style={[styles.heroSub, { color: metrics.avg_roi >= 0 ? colors.success : colors.error }]}>
+                  {`${metrics.avg_roi || 0}% ROI`}
                 </Text>
               </View>
             </View>
@@ -375,13 +379,13 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.quickAction, { backgroundColor: colors.surface }]}
-              onPress={() => router.push('/insights')}
+              onPress={() => router.push('/listing-builder')}
               activeOpacity={0.7}
             >
-              <View style={[styles.quickActionIcon, { backgroundColor: colors.surfaceMuted }]}>
-                <Feather name="bar-chart-2" size={18} color={colors.textPrimary} />
+              <View style={[styles.quickActionIcon, { backgroundColor: colors.brandLight || colors.surfaceMuted }]}>
+                <Feather name="file-text" size={18} color={colors.brand} />
               </View>
-              <Text style={[styles.quickActionLabel, { color: colors.textPrimary }]}>Insights</Text>
+              <Text style={[styles.quickActionLabel, { color: colors.textPrimary }]}>List Builder</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -112,22 +112,25 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView
-      testID="settings-screen"
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + space[2], paddingBottom: insets.bottom + space[8] }]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Header */}
-      <TouchableOpacity testID="back-btn" onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
-        <Feather name="arrow-left" size={20} color={colors.textPrimary} />
-      </TouchableOpacity>
-
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Business configuration</Text>
+    <View style={styles.container}>
+      {/* Fixed Header */}
+      <View style={[styles.fixedHeader, { paddingTop: insets.top + space[2] }]}>
+        <TouchableOpacity testID="back-btn" onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
+          <Feather name="arrow-left" size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={styles.backBtn} />
       </View>
+
+      <ScrollView
+        testID="settings-screen"
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space[8] }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+      {/* Subtitle */}
+      <Text style={styles.subtitle}>Business configuration</Text>
 
       {/* ─── THEME ─── */}
       <View style={styles.section}>

@@ -233,8 +233,8 @@ def compute_item_fields(item, settings=None):
     if days_listed >= 45 and status in ["listed", "crosslisted"]:
         derived_tags.append("stale")
     
-    # Check for dead_stock (90+ days listed)
-    if days_listed >= 90 and status in ["listed", "crosslisted"]:
+    # Check for dead_stock (60+ days listed - matching deadstock screen)
+    if days_listed >= 60 and status in ["listed", "crosslisted"]:
         derived_tags.append("dead_stock")
     
     # Check for margin_risk
