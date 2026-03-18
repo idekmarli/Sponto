@@ -19,7 +19,8 @@ import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '.
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const IMAGE_CONTAINER_HEIGHT = SCREEN_HEIGHT * 0.6;
-const HANDLE_SIZE = 32;
+const HANDLE_SIZE = 44; // Increased for better touch targets on iOS
+const HANDLE_HIT_SLOP = 16; // Extra hit area
 const MIN_CROP_SIZE = 60;
 
 interface ImageCropperProps {
@@ -128,6 +129,8 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
       onMoveShouldSetPanResponder: () => true,
       onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false, // Don't allow termination
+      onShouldBlockNativeResponder: () => true, // Block native responder
       onPanResponderGrant: () => {
         startCropBox.current = { ...cropBox };
         activeCorner.current = corner;

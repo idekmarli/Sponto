@@ -1028,10 +1028,12 @@ def extract_category(text: str) -> tuple[Optional[str], str]:
         "Dresses": ["dress", "gown", "maxi", "midi", "mini dress"],
         "Tops": ["top", "shirt", "blouse", "t-shirt", "tee", "sweater", "jumper", "hoodie", "cardigan"],
         "Outerwear": ["jacket", "coat", "blazer", "parka", "vest", "gilet", "puffer"],
-        "Bottoms": ["pants", "trousers", "jeans", "shorts", "skirt"],
+        "Bottoms": ["pants", "trousers", "jeans", "shorts"],
+        "Skirts": ["skirt", "mini skirt", "midi skirt", "maxi skirt", "pencil skirt", "a-line skirt"],
         "Footwear": ["shoes", "boots", "sneakers", "trainers", "heels", "sandals", "loafers"],
         "Accessories": ["scarf", "hat", "belt", "sunglasses", "jewelry", "watch", "wallet"],
         "Knitwear": ["knit", "sweater", "cardigan", "pullover", "jumper"],
+        "Swimwear": ["swimsuit", "bikini", "swim", "swimwear", "bathing suit"],
     }
     
     for category, keywords in category_keywords.items():

@@ -538,6 +538,7 @@ export default function SettingsScreen() {
       {/* App Version */}
       <Text style={styles.version}>Resellr OS v1.0.0</Text>
     </ScrollView>
+    </View>
   );
 }
 
@@ -549,6 +550,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.screenPadding,
+  },
+  scrollView: {
+    flex: 1,
   },
   centered: {
     justifyContent: 'center',

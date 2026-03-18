@@ -352,7 +352,7 @@ export default function InsightsScreen() {
         visible={toast.visible}
         message={toast.message}
         type={toast.type}
-        onDismiss={() => setToast(prev => ({ ...prev, visible: false }))}
+        onHide={() => setToast(prev => ({ ...prev, visible: false }))}
       />
     </ScrollView>
   );

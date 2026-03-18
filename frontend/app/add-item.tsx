@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useTheme } from '../src/ThemeContext';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
 import { useCurrency } from '../src/currency';
 import { api } from '../src/api';
@@ -14,7 +15,7 @@ const STEPS = [
   { key: 'listing', label: 'Listing', icon: 'tag' },
 ];
 
-const CATEGORIES = ['Bags', 'Outerwear', 'Knitwear', 'Footwear', 'Accessories', 'Dresses', 'Tops', 'Trousers'];
+const CATEGORIES = ['Bags', 'Outerwear', 'Knitwear', 'Footwear', 'Accessories', 'Dresses', 'Tops', 'Trousers', 'Skirts', 'Shorts', 'Swimwear'];
 const CONDITIONS = ['New with Tags', 'Excellent', 'Very Good', 'Good', 'Fair'];
 const PLATFORMS = ['ebay', 'depop', 'vinted', 'vestiaire', 'poshmark', 'etsy'];
 
@@ -39,6 +40,64 @@ export default function AddItemScreen() {
   const [targetPrice, setTargetPrice] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photos to add images.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        const base64 = result.assets[0].base64;
+        if (base64) {
+          setPhotos(prev => [...prev, `data:image/jpeg;base64,${base64}`]);
+        }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        const base64 = result.assets[0].base64;
+        if (base64) {
+          setPhotos(prev => [...prev, `data:image/jpeg;base64,${base64}`]);
+        }
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -67,7 +126,7 @@ export default function AddItemScreen() {
         notes: notes.trim(),
         status: 'sourced',
         is_draft: draft,
-        photos: [],
+        photos: photos,
       });
       router.back();
     } catch (e) {
@@ -129,6 +188,43 @@ export default function AddItemScreen() {
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>Item Information</Text>
               <Text style={styles.stepDesc}>Basic details about your item</Text>
+
+              {/* Photo Picker */}
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Photos</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.photoRow}>
+                    {photos.map((photo, index) => (
+                      <View key={index} style={styles.photoThumbWrap}>
+                        <Image source={{ uri: photo }} style={styles.photoThumb} />
+                        <TouchableOpacity
+                          style={styles.photoRemove}
+                          onPress={() => removePhoto(index)}
+                          activeOpacity={0.7}
+                        >
+                          <Feather name="x" size={14} color={colors.textInverse} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      style={styles.addPhotoBtn}
+                      onPress={pickImage}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="image" size={24} color={colors.textTertiary} />
+                      <Text style={styles.addPhotoBtnText}>Gallery</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.addPhotoBtn}
+                      onPress={takePhoto}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="camera" size={24} color={colors.textTertiary} />
+                      <Text style={styles.addPhotoBtnText}>Camera</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </View>
 
               <View style={styles.field}>
                 <Text style={styles.fieldLabel}>Title</Text>
@@ -546,6 +642,51 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.textInverse,
+  },
+
+  // Photos
+  photoRow: {
+    flexDirection: 'row',
+    gap: space[3],
+    paddingVertical: space[2],
+  },
+  photoThumbWrap: {
+    position: 'relative',
+  },
+  photoThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+  },
+  photoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.xs,
+  },
+  addPhotoBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[1],
+  },
+  addPhotoBtnText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
   },
 
   // Row
