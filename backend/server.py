@@ -14,13 +14,15 @@ import re
 import base64
 from io import BytesIO
 
-# OCR imports
+# Image analysis imports
 try:
-    import pytesseract
     from PIL import Image
-    OCR_AVAILABLE = True
+    IMAGE_PROCESSING_AVAILABLE = True
 except ImportError:
-    OCR_AVAILABLE = False
+    IMAGE_PROCESSING_AVAILABLE = False
+
+import json
+import httpx
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -48,6 +50,7 @@ class ItemCreate(BaseModel):
     sold_price: float = 0
     fees: float = 0
     packaging_cost: float = 0
+    shipping_cost: float = 0  # Cost to ship to buyer
     date_acquired: str = ""
     date_listed: str = ""
     date_sold: str = ""
@@ -57,6 +60,7 @@ class ItemCreate(BaseModel):
     photos: List[str] = []
     is_draft: bool = False
     tags: List[str] = []  # Manual workflow tags
+    color: str = ""
 
 class ItemUpdate(BaseModel):
     title: Optional[str] = None
@@ -72,6 +76,7 @@ class ItemUpdate(BaseModel):
     sold_price: Optional[float] = None
     fees: Optional[float] = None
     packaging_cost: Optional[float] = None
+    shipping_cost: Optional[float] = None  # Cost to ship to buyer
     date_acquired: Optional[str] = None
     date_listed: Optional[str] = None
     date_sold: Optional[str] = None
@@ -81,6 +86,7 @@ class ItemUpdate(BaseModel):
     photos: Optional[List[str]] = None
     is_draft: Optional[bool] = None
     tags: Optional[List[str]] = None  # Manual workflow tags
+    color: Optional[str] = None
 
 class SettingsModel(BaseModel):
     platform_fees: Dict[str, float] = {
@@ -149,14 +155,15 @@ def compute_item_fields(item, settings=None):
     sold_price = item.get("sold_price", 0)
     fees = item.get("fees", 0)
     packaging = item.get("packaging_cost", 0)
+    shipping_cost = item.get("shipping_cost", 0)  # Cost to ship to buyer
 
     if sold_price > 0:
-        net_profit = sold_price - cost_basis - fees - packaging
+        net_profit = sold_price - cost_basis - fees - packaging - shipping_cost
         roi = (net_profit / cost_basis * 100) if cost_basis > 0 else 0
         margin = (net_profit / sold_price * 100) if sold_price > 0 else 0
     else:
         target = item.get("target_list_price", 0)
-        net_profit = target - cost_basis - fees - packaging if target > 0 else 0
+        net_profit = target - cost_basis - fees - packaging - shipping_cost if target > 0 else 0
         roi = (net_profit / cost_basis * 100) if cost_basis > 0 else 0
         margin = (net_profit / target * 100) if target > 0 else 0
 
@@ -452,16 +459,22 @@ async def get_items(
     if status:
         query["status"] = status
     if platform:
-        query["platforms"] = platform
+        query["platforms"] = {"$in": [platform]}  # Array field — use $in for proper matching
     if category:
         query["category"] = category
-    
+
     settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     if not settings:
         settings = SettingsModel().dict()
-    
+
     items = await db.items.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [compute_item_fields(i, settings) for i in items]
+    computed = [compute_item_fields(i, settings) for i in items]
+
+    # Post-query filter: health state is computed, not stored in DB
+    if health:
+        computed = [i for i in computed if i.get("health") == health]
+
+    return computed
 
 @api_router.get("/items/{item_id}")
 async def get_item(item_id: str):
@@ -494,8 +507,9 @@ async def create_item(item: ItemCreate):
     doc["created_at"] = now_iso()
     doc["updated_at"] = now_iso()
     await db.items.insert_one(doc)
+    settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     created = await db.items.find_one({"id": doc["id"]}, {"_id": 0})
-    return compute_item_fields(created)
+    return compute_item_fields(created, settings)
 
 @api_router.put("/items/{item_id}")
 async def update_item(item_id: str, item: ItemUpdate):
@@ -504,8 +518,9 @@ async def update_item(item_id: str, item: ItemUpdate):
     result = await db.items.update_one({"id": item_id}, {"$set": updates})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
+    settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     updated = await db.items.find_one({"id": item_id}, {"_id": 0})
-    return compute_item_fields(updated)
+    return compute_item_fields(updated, settings)
 
 @api_router.delete("/items/{item_id}")
 async def delete_item(item_id: str):
@@ -647,6 +662,22 @@ async def get_dashboard():
         cat_profits[cat] = cat_profits.get(cat, 0) + item.get("net_profit", 0)
     best_category = max(cat_profits, key=cat_profits.get) if cat_profits else None
 
+    # This week activity
+    week_start = now - timedelta(days=now.weekday())  # Monday
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    this_week_sourced = [i for i in items if parse_date(i.get("date_acquired")) and parse_date(i.get("date_acquired")) >= week_start and i.get("status") not in ["sold", "shipped", "completed"]]
+    this_week_sold = [i for i in sold_all if parse_date(i.get("date_sold")) and parse_date(i.get("date_sold")) >= week_start]
+    this_week_listed = [i for i in items if parse_date(i.get("date_listed")) and parse_date(i.get("date_listed")) >= week_start]
+    this_week_profit = sum(i.get("net_profit", 0) for i in this_week_sold)
+
+    # Quick stats for home screen
+    quick_stats = {
+        "active": len(active_listings) + len(pre_listing),
+        "listed": len(active_listings),
+        "stale": stale_count,
+        "dead": dead_stock_count,
+    }
+
     # Smart action feed
     actions = generate_smart_actions(items, settings)
 
@@ -683,10 +714,17 @@ async def get_dashboard():
         "inventory_age": age_dist,
         "best_platform": best_platform,
         "best_category": best_category,
+        "quick_stats": quick_stats,
         "actions": actions[:15],
         "action_count": len(actions),
         "trends": trends,
         "total_items": len(items),
+        "this_week": {
+            "sourced": len(this_week_sourced),
+            "sold": len(this_week_sold),
+            "listed": len(this_week_listed),
+            "profit": round(this_week_profit, 2),
+        },
     }
 
 
@@ -694,8 +732,9 @@ async def get_dashboard():
 
 @api_router.get("/pipeline")
 async def get_pipeline():
+    settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     items = await db.items.find({}, {"_id": 0}).to_list(1000)
-    items = [compute_item_fields(i) for i in items]
+    items = [compute_item_fields(i, settings) for i in items]
     stage_order = ["sourced", "intake", "photographed", "listed", "crosslisted", "sold", "shipped", "completed"]
     stages = {}
     for stage in stage_order:
@@ -730,7 +769,7 @@ async def get_deadstock():
     platform_fees = settings.get("platform_fees", {})
 
     items = await db.items.find({"status": {"$in": ["listed", "crosslisted"]}}, {"_id": 0}).to_list(1000)
-    items = [compute_item_fields(i) for i in items]
+    items = [compute_item_fields(i, settings) for i in items]
 
     buckets = {"30_45": [], "45_60": [], "60_90": [], "90_plus": []}
 
@@ -830,7 +869,7 @@ async def source_calculate(req: SourceCalcRequest):
 
     # Historical context
     all_items = await db.items.find({}, {"_id": 0}).to_list(1000)
-    all_items = [compute_item_fields(i) for i in all_items]
+    all_items = [compute_item_fields(i, settings) for i in all_items]
 
     # Platform context
     plat_sold = [i for i in all_items if req.platform.lower() in i.get("platforms", []) and i.get("status") in ["sold", "shipped", "completed"]]
@@ -1058,32 +1097,154 @@ def extract_color(text: str) -> tuple[Optional[str], str]:
     
     return None, "low"
 
-def analyze_screenshot_ocr(image_base64: str) -> Dict[str, Any]:
-    """Perform OCR and extract structured data from a screenshot"""
-    if not OCR_AVAILABLE:
-        return {
-            "success": False,
-            "error": "OCR not available",
-            "raw_text": "",
-            "extracted_data": {}
-        }
-    
+async def analyze_screenshot_ai(image_base64: str) -> Dict[str, Any]:
+    """Analyze a screenshot using Claude Vision API to extract listing information"""
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+
+    if not anthropic_key:
+        logging.error("ANTHROPIC_API_KEY not set — falling back to regex extraction")
+        return analyze_screenshot_regex(image_base64)
+
     try:
-        # Decode base64 image
+        # Clean base64 string
+        raw_b64 = image_base64
+        media_type = "image/jpeg"
         if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
-        
-        image_data = base64.b64decode(image_base64)
-        image = Image.open(BytesIO(image_data))
-        
-        # Convert to RGB if necessary
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-        
-        # Perform OCR
-        raw_text = pytesseract.image_to_string(image, lang='eng')
-        
-        # Extract fields
+            header, raw_b64 = image_base64.split(',', 1)
+            if 'png' in header:
+                media_type = "image/png"
+
+        prompt = """Analyze this screenshot of a marketplace listing (e.g. Vinted, Depop, eBay, Poshmark, Vestiaire Collective, Etsy, Mercari, Grailed).
+
+Extract the following fields. For each field, provide a value and confidence level ("high", "medium", or "low").
+
+Return ONLY valid JSON in this exact format:
+{
+  "title": {"value": "item title", "confidence": "high"},
+  "brand": {"value": "brand name", "confidence": "high"},
+  "listed_price": {"value": 29.99, "confidence": "high"},
+  "size": {"value": "M", "confidence": "medium"},
+  "condition": {"value": "Like New", "confidence": "high"},
+  "category": {"value": "Tops", "confidence": "medium"},
+  "color": {"value": "Black", "confidence": "high"},
+  "detected_platform": "Vinted",
+  "raw_text": "all visible text from the screenshot"
+}
+
+Rules:
+- listed_price must be a number or null
+- detected_platform should be the marketplace name or null
+- raw_text should contain all readable text from the image
+- If you can't determine a field, set value to "" or null with confidence "low"
+- For condition, use: "New with Tags", "New without Tags", "Like New", "Very Good", "Good", "Fair", or "Poor"
+- For category, use: "Bags", "Dresses", "Tops", "Outerwear", "Bottoms", "Skirts", "Footwear", "Accessories", "Knitwear", "Swimwear", or "Trousers"
+"""
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-4-20250514",
+                    "max_tokens": 1024,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": raw_b64,
+                                },
+                            },
+                            {"type": "text", "text": prompt},
+                        ],
+                    }],
+                },
+            )
+
+        if resp.status_code != 200:
+            logging.error(f"Claude API error {resp.status_code}: {resp.text}")
+            return analyze_screenshot_regex(image_base64)
+
+        result = resp.json()
+        text_content = result["content"][0]["text"]
+
+        # Parse JSON from response — robustly extract from markdown blocks
+        json_str = text_content.strip()
+        # Try to extract JSON from ```json ... ``` blocks
+        json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', json_str)
+        if json_match:
+            json_str = json_match.group(1)
+        elif not json_str.startswith('{'):
+            # Try to find a JSON object in the text
+            brace_start = json_str.find('{')
+            brace_end = json_str.rfind('}')
+            if brace_start != -1 and brace_end != -1:
+                json_str = json_str[brace_start:brace_end + 1]
+
+        parsed = json.loads(json_str)
+
+        def normalize_field(val, default_val="") -> Dict[str, Any]:
+            """Ensure every field is {value, confidence} dict, even if Claude returns a flat value."""
+            if isinstance(val, dict) and "value" in val and "confidence" in val:
+                return val
+            if isinstance(val, dict) and "value" in val:
+                return {"value": val["value"], "confidence": "medium"}
+            # Claude returned a bare value (string, number, etc.)
+            return {"value": val if val is not None else default_val, "confidence": "medium"}
+
+        extracted_data = {
+            "title": normalize_field(parsed.get("title"), ""),
+            "brand": normalize_field(parsed.get("brand"), ""),
+            "listed_price": normalize_field(parsed.get("listed_price"), None),
+            "size": normalize_field(parsed.get("size"), ""),
+            "condition": normalize_field(parsed.get("condition"), ""),
+            "category": normalize_field(parsed.get("category"), ""),
+            "color": normalize_field(parsed.get("color"), ""),
+        }
+
+        return {
+            "success": True,
+            "raw_text": parsed.get("raw_text", ""),
+            "extracted_data": extracted_data,
+            "detected_platform": parsed.get("detected_platform"),
+        }
+
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse Claude response: {e}")
+        return analyze_screenshot_regex(image_base64)
+    except Exception as e:
+        logging.error(f"AI Analysis Error: {str(e)}")
+        return analyze_screenshot_regex(image_base64)
+
+
+def analyze_screenshot_regex(image_base64: str) -> Dict[str, Any]:
+    """Fallback: extract data using regex patterns on OCR text (if Tesseract available)"""
+    try:
+        if not IMAGE_PROCESSING_AVAILABLE:
+            return {"success": False, "error": "Image processing not available", "raw_text": "", "extracted_data": {}}
+
+        # Try Tesseract if available
+        raw_text = ""
+        try:
+            import pytesseract
+            if ',' in image_base64:
+                image_base64 = image_base64.split(',')[1]
+            image_data = base64.b64decode(image_base64)
+            image = Image.open(BytesIO(image_data))
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            raw_text = pytesseract.image_to_string(image, lang='eng')
+        except Exception as e:
+            logging.warning(f"Tesseract fallback failed: {e}")
+            return {"success": False, "error": "Image analysis unavailable", "raw_text": "", "extracted_data": {}}
+
         platform, platform_conf = detect_platform(raw_text)
         price, price_conf = extract_price(raw_text)
         brand, brand_conf = extract_brand(raw_text)
@@ -1092,7 +1253,7 @@ def analyze_screenshot_ocr(image_base64: str) -> Dict[str, Any]:
         category, category_conf = extract_category(raw_text)
         color, color_conf = extract_color(raw_text)
         title, title_conf = extract_title(raw_text, brand)
-        
+
         extracted_data = {
             "title": {"value": title or "", "confidence": title_conf},
             "brand": {"value": brand or "", "confidence": brand_conf},
@@ -1102,23 +1263,16 @@ def analyze_screenshot_ocr(image_base64: str) -> Dict[str, Any]:
             "category": {"value": category or "", "confidence": category_conf},
             "color": {"value": color or "", "confidence": color_conf},
         }
-        
+
         return {
             "success": True,
             "raw_text": raw_text,
             "extracted_data": extracted_data,
             "detected_platform": platform,
-            "platform_confidence": platform_conf,
         }
-        
     except Exception as e:
-        logging.error(f"OCR Error: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e),
-            "raw_text": "",
-            "extracted_data": {}
-        }
+        logging.error(f"Regex fallback error: {str(e)}")
+        return {"success": False, "error": str(e), "raw_text": "", "extracted_data": {}}
 
 @api_router.post("/analyze-screenshot")
 async def analyze_screenshot(req: ScreenshotAnalysisRequest):
@@ -1131,7 +1285,7 @@ async def analyze_screenshot(req: ScreenshotAnalysisRequest):
     detected_platforms = []
     
     for idx, image_b64 in enumerate(req.images):
-        result = analyze_screenshot_ocr(image_b64)
+        result = await analyze_screenshot_ai(image_b64)
         
         if result["success"]:
             all_text.append(result["raw_text"])
@@ -1150,13 +1304,21 @@ async def analyze_screenshot(req: ScreenshotAnalysisRequest):
     
     # Determine primary platform
     primary_platform = detected_platforms[0] if detected_platforms else None
-    
+
+    # If no images were successfully analyzed, return failure
+    if not all_text and not combined_data:
+        return {
+            "success": False,
+            "extracted_data": {},
+            "raw_text": "",
+            "detected_platform": None,
+        }
+
     return {
         "success": True,
         "extracted_data": combined_data,
         "raw_text": "\n---\n".join(all_text),
         "detected_platform": primary_platform,
-        "original_screenshot": req.images[0] if req.images else None,
     }
 
 
@@ -1164,8 +1326,9 @@ async def analyze_screenshot(req: ScreenshotAnalysisRequest):
 
 @api_router.get("/insights")
 async def get_insights():
+    settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     items = await db.items.find({}, {"_id": 0}).to_list(1000)
-    items = [compute_item_fields(i) for i in items]
+    items = [compute_item_fields(i, settings) for i in items]
 
     sold = [i for i in items if i.get("status") in ["sold", "shipped", "completed"]]
     active = [i for i in items if i.get("status") in ["listed", "crosslisted"]]
@@ -1314,6 +1477,16 @@ async def seed_data():
     await db.settings.update_one({"id": "global"}, {"$set": default_settings}, upsert=True)
 
     return {"message": "Seeded successfully", "count": len(mock_items)}
+
+
+@api_router.post("/reset")
+async def reset_data():
+    """Clear all items and reset settings to defaults"""
+    await db.items.delete_many({})
+    default_settings = SettingsModel().dict()
+    default_settings["id"] = "global"
+    await db.settings.update_one({"id": "global"}, {"$set": default_settings}, upsert=True)
+    return {"message": "All data reset successfully"}
 
 
 app.include_router(api_router)
