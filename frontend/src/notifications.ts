@@ -145,7 +145,7 @@ export async function scheduleWeeklyReviewReminder(): Promise<void> {
   if (Platform.OS === 'web') return;
 
   await scheduleNotification('weekly_review', {
-    weekday: 1, // Sunday
+    weekday: 1, // Sunday (Expo uses iOS NSCalendar: 1=Sunday, 2=Monday, ...)
     hour: 10,
     minute: 0,
     repeats: true,

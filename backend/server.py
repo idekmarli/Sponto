@@ -43,14 +43,14 @@ class ItemCreate(BaseModel):
     size: str = ""
     condition: str = ""
     source: str = ""
-    purchase_price: float = 0
-    shipping_to_acquire: float = 0
-    prep_cost: float = 0
-    target_list_price: float = 0
-    sold_price: float = 0
-    fees: float = 0
-    packaging_cost: float = 0
-    shipping_cost: float = 0  # Cost to ship to buyer
+    purchase_price: float = Field(default=0, ge=0)
+    shipping_to_acquire: float = Field(default=0, ge=0)
+    prep_cost: float = Field(default=0, ge=0)
+    target_list_price: float = Field(default=0, ge=0)
+    sold_price: float = Field(default=0, ge=0)
+    fees: float = Field(default=0, ge=0)
+    packaging_cost: float = Field(default=0, ge=0)
+    shipping_cost: float = Field(default=0, ge=0)  # Cost to ship to buyer
     date_acquired: str = ""
     date_listed: str = ""
     date_sold: str = ""
@@ -69,14 +69,14 @@ class ItemUpdate(BaseModel):
     size: Optional[str] = None
     condition: Optional[str] = None
     source: Optional[str] = None
-    purchase_price: Optional[float] = None
-    shipping_to_acquire: Optional[float] = None
-    prep_cost: Optional[float] = None
-    target_list_price: Optional[float] = None
-    sold_price: Optional[float] = None
-    fees: Optional[float] = None
-    packaging_cost: Optional[float] = None
-    shipping_cost: Optional[float] = None  # Cost to ship to buyer
+    purchase_price: Optional[float] = Field(default=None, ge=0)
+    shipping_to_acquire: Optional[float] = Field(default=None, ge=0)
+    prep_cost: Optional[float] = Field(default=None, ge=0)
+    target_list_price: Optional[float] = Field(default=None, ge=0)
+    sold_price: Optional[float] = Field(default=None, ge=0)
+    fees: Optional[float] = Field(default=None, ge=0)
+    packaging_cost: Optional[float] = Field(default=None, ge=0)
+    shipping_cost: Optional[float] = Field(default=None, ge=0)  # Cost to ship to buyer
     date_acquired: Optional[str] = None
     date_listed: Optional[str] = None
     date_sold: Optional[str] = None
@@ -105,12 +105,12 @@ class SettingsModel(BaseModel):
     onboarding_complete: bool = False
 
 class SourceCalcRequest(BaseModel):
-    purchase_price: float
-    expected_sale_price: float
+    purchase_price: float = Field(ge=0)
+    expected_sale_price: float = Field(ge=0)
     platform: str
-    shipping_to_acquire: float = 0
-    prep_cost: float = 0
-    packaging_cost: float = 0
+    shipping_to_acquire: float = Field(default=0, ge=0)
+    prep_cost: float = Field(default=0, ge=0)
+    packaging_cost: float = Field(default=0, ge=0)
     category: str = ""
 
 class ScreenshotAnalysisRequest(BaseModel):
@@ -158,12 +158,30 @@ def compute_item_fields(item, settings=None):
     shipping_cost = item.get("shipping_cost", 0)  # Cost to ship to buyer
 
     if sold_price > 0:
+        # Actual profit from completed sale
         net_profit = sold_price - cost_basis - fees - packaging - shipping_cost
         roi = (net_profit / cost_basis * 100) if cost_basis > 0 else 0
         margin = (net_profit / sold_price * 100) if sold_price > 0 else 0
     else:
+        # Projected profit — estimate fees from platform rates if not yet sold
         target = item.get("target_list_price", 0)
-        net_profit = target - cost_basis - fees - packaging - shipping_cost if target > 0 else 0
+        if target > 0 and fees <= 0:
+            # Estimate fees from platform fee percentages
+            platform_fees = settings.get("platform_fees", {}) if settings else {}
+            platforms = item.get("platforms", [])
+            if platforms:
+                fee_pcts = [platform_fees.get(p, 10.0) for p in platforms]
+                avg_fee_pct = sum(fee_pcts) / len(fee_pcts)
+            else:
+                avg_fee_pct = 10.0  # Conservative default
+            estimated_fees = target * (avg_fee_pct / 100)
+        else:
+            estimated_fees = fees
+        default_packaging = settings.get("default_packaging_cost", 2.0) if settings else 2.0
+        default_shipping = settings.get("default_shipping", 5.0) if settings else 5.0
+        eff_packaging = packaging if packaging > 0 else default_packaging
+        eff_shipping = shipping_cost if shipping_cost > 0 else default_shipping
+        net_profit = target - cost_basis - estimated_fees - eff_packaging - eff_shipping if target > 0 else 0
         roi = (net_profit / cost_basis * 100) if cost_basis > 0 else 0
         margin = (net_profit / target * 100) if target > 0 else 0
 
@@ -211,6 +229,8 @@ def compute_item_fields(item, settings=None):
         item["health"] = "ready_to_list"
     elif days_listed >= 90:
         item["health"] = "dead_stock"
+    elif days_listed >= 60:
+        item["health"] = "critical_stale"
     elif days_listed >= 45:
         item["health"] = "stale"
     elif days_listed >= 30:
@@ -340,7 +360,7 @@ def generate_smart_actions(items, settings):
 
         # P4: APPROACHING STALE
         elif health == "approaching_stale":
-            days_to_stale = 30 - days
+            days_to_stale = 45 - days  # Stale threshold starts at 45 days
             actions.append({
                 "priority": 4, "type": "approaching_stale", "item_id": item_id, "title": title,
                 "message": f"{title} — {days}d listed. {days_to_stale}d until stale. Refresh listing or optimize.",
@@ -1274,11 +1294,18 @@ def analyze_screenshot_regex(image_base64: str) -> Dict[str, Any]:
         logging.error(f"Regex fallback error: {str(e)}")
         return {"success": False, "error": str(e), "raw_text": "", "extracted_data": {}}
 
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB per image
+
 @api_router.post("/analyze-screenshot")
 async def analyze_screenshot(req: ScreenshotAnalysisRequest):
     """Analyze uploaded screenshot(s) to extract listing information"""
     if not req.images:
         raise HTTPException(status_code=400, detail="No images provided")
+    if len(req.images) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 images per request")
+    for img in req.images:
+        if len(img) > MAX_IMAGE_SIZE_BYTES:
+            raise HTTPException(status_code=400, detail="Image too large (max 10 MB)")
     
     all_text = []
     combined_data = {}

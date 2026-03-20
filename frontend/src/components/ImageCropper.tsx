@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,16 @@ import {
   Dimensions,
   ActivityIndicator,
   PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../theme';
+import { colors, space, fontFamily } from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const IMAGE_CONTAINER_HEIGHT = SCREEN_HEIGHT * 0.6;
-const HANDLE_SIZE = 44; // Increased for better touch targets on iOS
-const HANDLE_HIT_SLOP = 16; // Extra hit area
+const IMAGE_CONTAINER_HEIGHT = SCREEN_HEIGHT * 0.55;
+const HANDLE_SIZE = 44;
 const MIN_CROP_SIZE = 60;
 
 interface ImageCropperProps {
@@ -31,16 +29,22 @@ interface ImageCropperProps {
 }
 
 export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCropperProps) {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [imageLayout, setImageLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
   const [originalDimensions, setOriginalDimensions] = useState({ width: 0, height: 0 });
-  
-  // Crop box state
+
+  // Crop box state — keep both state and ref in sync so PanResponders always read current values
   const [cropBox, setCropBox] = useState({ x: 20, y: 20, width: 200, height: 200 });
-  
-  // Track gesture state
+  const cropBoxRef = useRef(cropBox);
+  const imageLayoutRef = useRef(imageLayout);
+
+  // Keep refs in sync with state
+  useEffect(() => { cropBoxRef.current = cropBox; }, [cropBox]);
+  useEffect(() => { imageLayoutRef.current = imageLayout; }, [imageLayout]);
+
+  // Track gesture start position
   const startCropBox = useRef({ x: 0, y: 0, width: 0, height: 0 });
-  const activeCorner = useRef<string | null>(null);
 
   // Reset crop box when image changes
   useEffect(() => {
@@ -55,9 +59,9 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
     }
   }, [visible, imageLayout]);
 
-  const onImageLoad = (event: any) => {
+  const onImageLoad = useCallback((event: any) => {
     let width = 0, height = 0;
-    
+
     if (event.nativeEvent?.source) {
       width = event.nativeEvent.source.width;
       height = event.nativeEvent.source.height;
@@ -68,14 +72,14 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
       width = SCREEN_WIDTH;
       height = SCREEN_WIDTH;
     }
-    
+
     setOriginalDimensions({ width, height });
-    
+
     const containerWidth = SCREEN_WIDTH - 40;
     const containerHeight = IMAGE_CONTAINER_HEIGHT;
     const imageAspect = width / height;
     const containerAspect = containerWidth / containerHeight;
-    
+
     let displayWidth, displayHeight;
     if (imageAspect > containerAspect) {
       displayWidth = containerWidth;
@@ -84,101 +88,88 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
       displayHeight = containerHeight;
       displayWidth = containerHeight * imageAspect;
     }
-    
+
     const offsetX = (containerWidth - displayWidth) / 2;
     const offsetY = (containerHeight - displayHeight) / 2;
-    
+
     setImageLayout({
       width: displayWidth,
       height: displayHeight,
       x: offsetX,
       y: offsetY,
     });
-  };
+  }, []);
 
-  // Main crop box pan responder (for moving)
+  // Main crop box pan responder — reads from refs to avoid stale closures
   const boxPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        startCropBox.current = { ...cropBox };
-        activeCorner.current = 'move';
+        startCropBox.current = { ...cropBoxRef.current };
       },
       onPanResponderMove: (_, gesture) => {
-        const newX = Math.max(0, Math.min(
-          startCropBox.current.x + gesture.dx,
-          imageLayout.width - startCropBox.current.width
-        ));
-        const newY = Math.max(0, Math.min(
-          startCropBox.current.y + gesture.dy,
-          imageLayout.height - startCropBox.current.height
-        ));
+        const layout = imageLayoutRef.current;
+        const start = startCropBox.current;
+        const newX = Math.max(0, Math.min(start.x + gesture.dx, layout.width - start.width));
+        const newY = Math.max(0, Math.min(start.y + gesture.dy, layout.height - start.height));
         setCropBox(prev => ({ ...prev, x: newX, y: newY }));
       },
-      onPanResponderRelease: () => {
-        activeCorner.current = null;
-      },
+      onPanResponderRelease: () => {},
     })
   ).current;
 
-  // Corner pan responders
+  // Corner pan responder factory — also reads from refs
   const createCornerResponder = (corner: string) => {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderTerminationRequest: () => false, // Don't allow termination
-      onShouldBlockNativeResponder: () => true, // Block native responder
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
       onPanResponderGrant: () => {
-        startCropBox.current = { ...cropBox };
-        activeCorner.current = corner;
+        startCropBox.current = { ...cropBoxRef.current };
       },
       onPanResponderMove: (_, gesture) => {
+        const layout = imageLayoutRef.current;
         const start = startCropBox.current;
         let newBox = { ...start };
-        
+
         switch (corner) {
-          case 'topLeft':
-            const newWidthTL = Math.max(MIN_CROP_SIZE, start.width - gesture.dx);
-            const newHeightTL = Math.max(MIN_CROP_SIZE, start.height - gesture.dy);
-            const newXTL = start.x + start.width - newWidthTL;
-            const newYTL = start.y + start.height - newHeightTL;
-            if (newXTL >= 0 && newYTL >= 0) {
-              newBox = { x: newXTL, y: newYTL, width: newWidthTL, height: newHeightTL };
-            }
+          case 'topLeft': {
+            const w = Math.max(MIN_CROP_SIZE, start.width - gesture.dx);
+            const h = Math.max(MIN_CROP_SIZE, start.height - gesture.dy);
+            const x = start.x + start.width - w;
+            const y = start.y + start.height - h;
+            if (x >= 0 && y >= 0) newBox = { x, y, width: w, height: h };
             break;
-          case 'topRight':
-            const newWidthTR = Math.max(MIN_CROP_SIZE, start.width + gesture.dx);
-            const newHeightTR = Math.max(MIN_CROP_SIZE, start.height - gesture.dy);
-            const newYTR = start.y + start.height - newHeightTR;
-            if (newYTR >= 0 && start.x + newWidthTR <= imageLayout.width) {
-              newBox = { ...start, y: newYTR, width: newWidthTR, height: newHeightTR };
-            }
+          }
+          case 'topRight': {
+            const w = Math.max(MIN_CROP_SIZE, start.width + gesture.dx);
+            const h = Math.max(MIN_CROP_SIZE, start.height - gesture.dy);
+            const y = start.y + start.height - h;
+            if (y >= 0 && start.x + w <= layout.width) newBox = { ...start, y, width: w, height: h };
             break;
-          case 'bottomLeft':
-            const newWidthBL = Math.max(MIN_CROP_SIZE, start.width - gesture.dx);
-            const newHeightBL = Math.max(MIN_CROP_SIZE, start.height + gesture.dy);
-            const newXBL = start.x + start.width - newWidthBL;
-            if (newXBL >= 0 && start.y + newHeightBL <= imageLayout.height) {
-              newBox = { x: newXBL, y: start.y, width: newWidthBL, height: newHeightBL };
-            }
+          }
+          case 'bottomLeft': {
+            const w = Math.max(MIN_CROP_SIZE, start.width - gesture.dx);
+            const h = Math.max(MIN_CROP_SIZE, start.height + gesture.dy);
+            const x = start.x + start.width - w;
+            if (x >= 0 && start.y + h <= layout.height) newBox = { x, y: start.y, width: w, height: h };
             break;
-          case 'bottomRight':
-            const newWidthBR = Math.max(MIN_CROP_SIZE, start.width + gesture.dx);
-            const newHeightBR = Math.max(MIN_CROP_SIZE, start.height + gesture.dy);
-            if (start.x + newWidthBR <= imageLayout.width && start.y + newHeightBR <= imageLayout.height) {
-              newBox = { ...start, width: newWidthBR, height: newHeightBR };
-            }
+          }
+          case 'bottomRight': {
+            const w = Math.max(MIN_CROP_SIZE, start.width + gesture.dx);
+            const h = Math.max(MIN_CROP_SIZE, start.height + gesture.dy);
+            if (start.x + w <= layout.width && start.y + h <= layout.height) newBox = { ...start, width: w, height: h };
             break;
+          }
         }
-        
+
         setCropBox(newBox);
       },
-      onPanResponderRelease: () => {
-        activeCorner.current = null;
-      },
+      onPanResponderRelease: () => {},
     });
   };
 
@@ -188,32 +179,30 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
   const brResponder = useRef(createCornerResponder('bottomRight')).current;
 
   const handleCrop = async () => {
-    if (!imageUri || originalDimensions.width === 0) return;
-    
+    if (!imageUri || originalDimensions.width === 0 || imageLayout.width === 0 || imageLayout.height === 0) return;
+
     setLoading(true);
     try {
-      // Calculate scale factor
       const scaleX = originalDimensions.width / imageLayout.width;
       const scaleY = originalDimensions.height / imageLayout.height;
-      
-      // Convert displayed crop box to original image coordinates
+
       const cropRegion = {
-        originX: Math.round(cropBox.x * scaleX),
-        originY: Math.round(cropBox.y * scaleY),
-        width: Math.round(cropBox.width * scaleX),
-        height: Math.round(cropBox.height * scaleY),
+        originX: Math.max(0, Math.round(cropBox.x * scaleX)),
+        originY: Math.max(0, Math.round(cropBox.y * scaleY)),
+        width: Math.min(originalDimensions.width, Math.round(cropBox.width * scaleX)),
+        height: Math.min(originalDimensions.height, Math.round(cropBox.height * scaleY)),
       };
-      
+
       const result = await ImageManipulator.manipulateAsync(
         imageUri,
         [{ crop: cropRegion }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
-      
-      const croppedUri = result.base64 
+
+      const croppedUri = result.base64
         ? `data:image/jpeg;base64,${result.base64}`
         : result.uri;
-        
+
       onCrop(croppedUri);
     } catch (error) {
       console.error('Crop error:', error);
@@ -229,15 +218,15 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Header — uses safe area insets */}
+        <View style={[styles.header, { paddingTop: insets.top + space[2] }]}>
           <TouchableOpacity style={styles.headerBtn} onPress={onClose}>
             <Feather name="x" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Crop Product Image</Text>
           <View style={styles.headerBtn} />
         </View>
-        
+
         {/* Instructions */}
         <View style={styles.instructions}>
           <Feather name="move" size={16} color="rgba(255,255,255,0.6)" />
@@ -252,7 +241,7 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
             onLoad={onImageLoad}
             resizeMode="contain"
           />
-          
+
           {imageLayout.width > 0 && (
             <>
               {/* Dark overlay outside crop area */}
@@ -260,7 +249,7 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
               <View style={[styles.overlay, styles.overlayBottom, { top: cropBox.y + cropBox.height, height: imageLayout.height - cropBox.y - cropBox.height }]} />
               <View style={[styles.overlay, styles.overlayLeft, { top: cropBox.y, height: cropBox.height, width: cropBox.x }]} />
               <View style={[styles.overlay, styles.overlayRight, { top: cropBox.y, height: cropBox.height, left: cropBox.x + cropBox.width, width: imageLayout.width - cropBox.x - cropBox.width }]} />
-              
+
               {/* Crop box */}
               <View
                 style={[styles.cropBox, {
@@ -277,33 +266,33 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
                 <View style={[styles.gridLine, styles.gridLineV, { left: '33%' }]} />
                 <View style={[styles.gridLine, styles.gridLineV, { left: '66%' }]} />
               </View>
-              
-              {/* Corner handles - positioned outside the crop box for easier grabbing */}
-              <View 
-                style={[styles.handle, { 
-                  left: cropBox.x - HANDLE_SIZE/2, 
-                  top: cropBox.y - HANDLE_SIZE/2 
+
+              {/* Corner handles */}
+              <View
+                style={[styles.handle, {
+                  left: cropBox.x - HANDLE_SIZE/2,
+                  top: cropBox.y - HANDLE_SIZE/2
                 }]}
                 {...tlResponder.panHandlers}
               />
-              <View 
-                style={[styles.handle, { 
-                  left: cropBox.x + cropBox.width - HANDLE_SIZE/2, 
-                  top: cropBox.y - HANDLE_SIZE/2 
+              <View
+                style={[styles.handle, {
+                  left: cropBox.x + cropBox.width - HANDLE_SIZE/2,
+                  top: cropBox.y - HANDLE_SIZE/2
                 }]}
                 {...trResponder.panHandlers}
               />
-              <View 
-                style={[styles.handle, { 
-                  left: cropBox.x - HANDLE_SIZE/2, 
-                  top: cropBox.y + cropBox.height - HANDLE_SIZE/2 
+              <View
+                style={[styles.handle, {
+                  left: cropBox.x - HANDLE_SIZE/2,
+                  top: cropBox.y + cropBox.height - HANDLE_SIZE/2
                 }]}
                 {...blResponder.panHandlers}
               />
-              <View 
-                style={[styles.handle, { 
-                  left: cropBox.x + cropBox.width - HANDLE_SIZE/2, 
-                  top: cropBox.y + cropBox.height - HANDLE_SIZE/2 
+              <View
+                style={[styles.handle, {
+                  left: cropBox.x + cropBox.width - HANDLE_SIZE/2,
+                  top: cropBox.y + cropBox.height - HANDLE_SIZE/2
                 }]}
                 {...brResponder.panHandlers}
               />
@@ -311,13 +300,13 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
           )}
         </View>
 
-        {/* Actions */}
-        <View style={styles.actions}>
+        {/* Actions — uses safe area insets for bottom */}
+        <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 20) + space[3] }]}>
           <TouchableOpacity style={styles.skipBtn} onPress={onClose}>
             <Text style={styles.skipBtnText}>Skip Cropping</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.cropBtn, loading && styles.cropBtnDisabled]} 
+          <TouchableOpacity
+            style={[styles.cropBtn, loading && styles.cropBtnDisabled]}
             onPress={handleCrop}
             disabled={loading}
           >
@@ -346,7 +335,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 16,
   },
   headerBtn: {
@@ -435,8 +423,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    paddingBottom: 40,
+    paddingTop: 24,
   },
   skipBtn: {
     flex: 1,

@@ -17,10 +17,29 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { colors, space, radius, fontFamily, fontSize, spacing, shadows } from '../src/theme';
 import { useCurrency } from '../src/currency';
 import { api } from '../src/api';
 import { ImageCropper } from '../src/components/ImageCropper';
+
+// Compress a base64 image to reduce payload size for saving
+async function compressForSave(uri: string): Promise<string> {
+  try {
+    // If it's a base64 data URI, manipulate it
+    if (uri.startsWith('data:')) {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return `data:image/jpeg;base64,${result.base64}`;
+    }
+    return uri;
+  } catch {
+    return uri; // Return original on error
+  }
+}
 
 // ─── Types ───
 interface ExtractedField {
@@ -220,7 +239,7 @@ export default function AddFromScreenshotScreen() {
     setShowCropper(false);
     
     // Now analyze the cropped image
-    analyzeImages([croppedUri]);
+    await analyzeImages([croppedUri]);
   };
   
   // Skip crop and analyze original
@@ -284,8 +303,9 @@ export default function AddFromScreenshotScreen() {
 
     try {
       // Use cropped image if available, otherwise use first selected image
-      const photoToSave = croppedImage || selectedImages[0];
-      
+      const rawPhoto = croppedImage || selectedImages[0];
+      const photoToSave = rawPhoto ? await compressForSave(rawPhoto) : null;
+
       const itemData = {
         title: title.trim() || 'Untitled Item',
         brand: brand.trim(),
@@ -295,9 +315,10 @@ export default function AddFromScreenshotScreen() {
         purchase_price: parseFloat(purchasePrice) || 0,
         target_list_price: parseFloat(listedPrice) || 0,
         platforms: detectedPlatform ? [detectedPlatform.toLowerCase()] : [],
+        color: color.trim(),
         status: 'sourced',
         date_acquired: new Date().toISOString().split('T')[0],
-        notes: notes.trim() + (color ? `\nColor: ${color}` : '') + `\n\n[Extracted from screenshot]`,
+        notes: (notes.trim() ? notes.trim() + '\n\n' : '') + '[Extracted from screenshot]',
         photos: photoToSave ? [photoToSave] : [],
         is_draft: false,
       };
@@ -341,8 +362,12 @@ export default function AddFromScreenshotScreen() {
         platforms: detectedPlatform ? [detectedPlatform.toLowerCase()] : [],
         status: 'sourced',
         date_acquired: new Date().toISOString().split('T')[0],
-        notes: notes.trim() + (color ? `\nColor: ${color}` : '') + `\n\n[Draft - Extracted from screenshot]`,
-        photos: selectedImages.slice(0, 1),
+        color: color.trim(),
+        notes: (notes.trim() ? notes.trim() + '\n\n' : '') + '[Draft - Extracted from screenshot]',
+        photos: await (async () => {
+          const raw = croppedImage || selectedImages[0];
+          return raw ? [await compressForSave(raw)] : [];
+        })(),
         is_draft: true,
       };
 
@@ -373,6 +398,8 @@ export default function AddFromScreenshotScreen() {
     setPurchasePrice('');
     setNotes('');
     setCroppedImage(null);
+    setOriginalFileUri(null);
+    setShowCropper(false);
   };
 
   // ─── Render Upload State ───

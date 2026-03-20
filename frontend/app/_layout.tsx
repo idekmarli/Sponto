@@ -32,6 +32,7 @@ function AppContent() {
         <Stack.Screen name="add-from-screenshot" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="deadstock" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         <Stack.Screen name="settings" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        <Stack.Screen name="listing-builder" options={{ presentation: 'card', animation: 'slide_from_right' }} />
       </Stack>
     </ErrorBoundary>
   );
