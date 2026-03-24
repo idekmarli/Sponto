@@ -143,6 +143,7 @@ class SourceCalcRequest(BaseModel):
     shipping_to_acquire: float = Field(default=0, ge=0)
     prep_cost: float = Field(default=0, ge=0)
     packaging_cost: float = Field(default=0, ge=0)
+    shipping_cost: float = Field(default=0, ge=0)  # Cost to ship to buyer
     category: str = ""
 
 class ScreenshotAnalysisRequest(BaseModel):
@@ -505,7 +506,12 @@ async def get_items(
     status: Optional[str] = None,
     platform: Optional[str] = None,
     category: Optional[str] = None,
-    health: Optional[str] = None
+    health: Optional[str] = None,
+    q: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     query = {}
     if status:
@@ -514,17 +520,41 @@ async def get_items(
         query["platforms"] = {"$in": [platform]}  # Array field — use $in for proper matching
     if category:
         query["category"] = category
+    if q:
+        escaped = re.escape(q.strip())
+        query["$or"] = [
+            {"title": {"$regex": escaped, "$options": "i"}},
+            {"brand": {"$regex": escaped, "$options": "i"}},
+            {"category": {"$regex": escaped, "$options": "i"}},
+            {"notes": {"$regex": escaped, "$options": "i"}},
+        ]
 
     settings = await db.settings.find_one({"id": "global"}, {"_id": 0})
     if not settings:
         settings = SettingsModel().dict()
 
-    items = await db.items.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    computed = [compute_item_fields(i, settings) for i in items]
+    sort_field_map = {
+        "created_at": "created_at",
+        "updated_at": "updated_at",
+        "purchase_price": "purchase_price",
+        "target_list_price": "target_list_price",
+        "sold_price": "sold_price",
+        "date_listed": "date_listed",
+        "date_sold": "date_sold",
+    }
+    sort_field = sort_field_map.get(sort_by, "created_at")
+    sort_direction = -1 if sort_dir.lower() == "desc" else 1
 
-    # Post-query filter: health state is computed, not stored in DB
+    # Health is computed at runtime; when filtering by health we need to compute first, then slice.
     if health:
+        items = await db.items.find(query, {"_id": 0}).sort(sort_field, sort_direction).to_list(2000)
+        computed = [compute_item_fields(i, settings) for i in items]
         computed = [i for i in computed if i.get("health") == health]
+        return computed[offset:offset + limit]
+
+    cursor = db.items.find(query, {"_id": 0}).sort(sort_field, sort_direction).skip(offset).limit(limit)
+    items = await cursor.to_list(length=limit)
+    computed = [compute_item_fields(i, settings) for i in items]
 
     return computed
 
@@ -579,7 +609,7 @@ async def delete_item(item_id: str):
     result = await db.items.delete_one({"id": item_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Item not found")
-    return {"deleted": True}
+    return {"ok": True, "deleted": True}
 
 
 # ─── Bulk Operations ───
@@ -598,6 +628,17 @@ async def bulk_update_items(request: BulkUpdateRequest):
         raise HTTPException(status_code=400, detail="No item IDs provided")
     
     updates = {k: v for k, v in request.update.items() if v is not None}
+    allowed_fields = set(ItemUpdate.model_fields.keys())
+    unknown_fields = [k for k in updates.keys() if k not in allowed_fields]
+    if unknown_fields:
+        raise HTTPException(status_code=400, detail=f"Unknown update fields: {', '.join(unknown_fields)}")
+
+    # Reuse ItemUpdate constraints for numeric field validation.
+    try:
+        validated = ItemUpdate(**updates)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid bulk update payload: {str(e)}")
+    updates = {k: v for k, v in validated.model_dump().items() if v is not None}
     updates["updated_at"] = now_iso()
     
     result = await db.items.update_many(
@@ -606,6 +647,7 @@ async def bulk_update_items(request: BulkUpdateRequest):
     )
     
     return {
+        "ok": True,
         "matched": result.matched_count,
         "modified": result.modified_count
     }
@@ -619,6 +661,7 @@ async def bulk_delete_items(request: BulkDeleteRequest):
     result = await db.items.delete_many({"id": {"$in": request.item_ids}})
     
     return {
+        "ok": True,
         "deleted": result.deleted_count
     }
 
@@ -681,7 +724,7 @@ async def get_dashboard():
     avg_roi = round(sum(profitable_rois) / len(profitable_rois), 1) if profitable_rois else 0
     
     # Overall ROI for the month (total profit / total cost)
-    total_cost = sum(i.get("purchase_price", 0) for i in sold_this_month)
+    total_cost = sum(i.get("total_cost_basis", 0) for i in sold_this_month)
     monthly_roi = round((monthly_profit / total_cost * 100), 1) if total_cost > 0 else 0
 
     # Dead stock count
@@ -893,13 +936,18 @@ async def source_calculate(req: SourceCalcRequest):
     target_roi = settings.get("target_roi", 50.0)
     min_profit = settings.get("min_profit", 10.0)
 
-    total_cost = req.purchase_price + req.shipping_to_acquire + req.prep_cost + req.packaging_cost
+    total_cost_basis = req.purchase_price + req.shipping_to_acquire + req.prep_cost
+    extra_fulfillment_costs = req.packaging_cost + req.shipping_cost
+    total_cost = total_cost_basis + extra_fulfillment_costs
     estimated_fees = round(req.expected_sale_price * (fee_pct / 100), 2)
     net_profit = round(req.expected_sale_price - total_cost - estimated_fees, 2)
     roi = round((net_profit / total_cost * 100), 1) if total_cost > 0 else 0
     margin = round((net_profit / req.expected_sale_price * 100), 1) if req.expected_sale_price > 0 else 0
     break_even = round(total_cost / (1 - fee_pct / 100), 2) if fee_pct < 100 else 0
-    max_buy = round(req.expected_sale_price * (1 - fee_pct / 100) - req.shipping_to_acquire - req.prep_cost - req.packaging_cost, 2)
+    max_buy = round(
+        req.expected_sale_price * (1 - fee_pct / 100) - req.shipping_to_acquire - req.prep_cost - req.packaging_cost - req.shipping_cost,
+        2
+    )
     min_sale = round(total_cost / (1 - fee_pct / 100), 2) if fee_pct < 100 else 0
 
     # Enhanced verdict with confidence
@@ -996,35 +1044,48 @@ def detect_platform(text: str) -> tuple[Optional[str], str]:
 
 def extract_price(text: str) -> tuple[Optional[float], str]:
     """Extract price from OCR text"""
+    def parse_price_token(token: str) -> Optional[float]:
+        cleaned = token.strip().replace(" ", "")
+        # Handle European decimal commas and mixed separators.
+        if "," in cleaned and "." in cleaned:
+            if cleaned.rfind(",") > cleaned.rfind("."):
+                cleaned = cleaned.replace(".", "").replace(",", ".")
+            else:
+                cleaned = cleaned.replace(",", "")
+        elif "," in cleaned:
+            parts = cleaned.split(",")
+            if len(parts[-1]) in (1, 2):
+                cleaned = cleaned.replace(",", ".")
+            else:
+                cleaned = cleaned.replace(",", "")
+        try:
+            value = float(cleaned)
+            return value if 1 < value < 50000 else None
+        except ValueError:
+            return None
+
     # Common price patterns
     patterns = [
-        r'[\$\£\€]\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)',  # $199, £199.99, €1,999
-        r'(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*[\$\£\€]',  # 199$, 199.99€
-        r'(?:price|prix|preis|prijs)[\s:]*[\$\£\€]?\s*(\d+(?:\.\d{2})?)',  # Price: $199
-        r'(?:asking|listed|for sale)[\s:]*[\$\£\€]?\s*(\d+(?:\.\d{2})?)',
-        r'\b(\d{2,4}(?:\.\d{2})?)\s*(?:incl|including|free ship)',
+        r'[\$\£\€]\s*(\d{1,4}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)',
+        r'(\d{1,4}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)\s*[\$\£\€]',
+        r'(?:price|prix|preis|prijs)[\s:]*[\$\£\€]?\s*(\d{1,4}(?:[.,]\d{1,2})?)',
+        r'(?:asking|listed|for sale)[\s:]*[\$\£\€]?\s*(\d{1,4}(?:[.,]\d{1,2})?)',
+        r'\b(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:incl|including|free ship)',
     ]
     
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            price_str = match.group(1).replace(',', '')
-            try:
-                price = float(price_str)
-                if 1 < price < 50000:  # Reasonable price range
-                    return price, "high"
-            except ValueError:
-                continue
+            parsed = parse_price_token(match.group(1))
+            if parsed is not None:
+                return parsed, "high"
     
     # Fallback: find any number that looks like a price
-    numbers = re.findall(r'\b(\d{2,4}(?:\.\d{2})?)\b', text)
+    numbers = re.findall(r'\b(\d{1,4}(?:[.,]\d{1,2})?)\b', text)
     for num in numbers:
-        try:
-            price = float(num)
-            if 5 < price < 10000:
-                return price, "low"
-        except ValueError:
-            continue
+        parsed = parse_price_token(num)
+        if parsed is not None and 5 < parsed < 10000:
+            return parsed, "low"
     
     return None, "low"
 
@@ -1261,11 +1322,41 @@ Rules:
             "color": normalize_field(parsed.get("color"), ""),
         }
 
+        # Backfill weak/empty AI values from raw OCR text extraction heuristics.
+        raw_text = parsed.get("raw_text", "") or ""
+        if raw_text:
+            price_fb, price_conf = extract_price(raw_text)
+            brand_fb, brand_conf = extract_brand(raw_text)
+            size_fb, size_conf = extract_size(raw_text)
+            condition_fb, condition_conf = extract_condition(raw_text)
+            category_fb, category_conf = extract_category(raw_text)
+            color_fb, color_conf = extract_color(raw_text)
+            title_fb, title_conf = extract_title(raw_text, brand_fb)
+            platform_fb, _ = detect_platform(raw_text)
+
+            fallback_map = {
+                "title": (title_fb, title_conf),
+                "brand": (brand_fb, brand_conf),
+                "listed_price": (price_fb, price_conf),
+                "size": (size_fb, size_conf),
+                "condition": (condition_fb, condition_conf),
+                "category": (category_fb, category_conf),
+                "color": (color_fb, color_conf),
+            }
+            for key, (fb_val, fb_conf) in fallback_map.items():
+                cur_val = extracted_data[key].get("value")
+                cur_conf = extracted_data[key].get("confidence", "low")
+                is_empty = cur_val is None or (isinstance(cur_val, str) and not cur_val.strip())
+                if is_empty and fb_val not in (None, ""):
+                    extracted_data[key] = {"value": fb_val, "confidence": fb_conf}
+                elif cur_conf == "low" and fb_val not in (None, "") and fb_conf in ("medium", "high"):
+                    extracted_data[key] = {"value": fb_val, "confidence": fb_conf}
+
         return {
             "success": True,
-            "raw_text": parsed.get("raw_text", ""),
+            "raw_text": raw_text,
             "extracted_data": extracted_data,
-            "detected_platform": parsed.get("detected_platform"),
+            "detected_platform": parsed.get("detected_platform") or platform_fb if raw_text else parsed.get("detected_platform"),
         }
 
     except json.JSONDecodeError as e:

@@ -54,7 +54,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (currency.code === 'JPY') {
       return `${sign}${currency.symbol} ${Math.round(absAmount).toLocaleString()}`;
     }
-    return `${sign}${currency.symbol} ${absAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    const hasFraction = Math.abs(absAmount % 1) > 0;
+    return `${sign}${currency.symbol} ${absAmount.toLocaleString(undefined, {
+      minimumFractionDigits: hasFraction ? 2 : 0,
+      maximumFractionDigits: hasFraction ? 2 : 2,
+    })}`;
   };
 
   const formatAmountCompact = (amount: number): string => {
@@ -84,5 +88,9 @@ export function useCurrency() {
 export function formatCurrency(amount: number, symbol = '$', showSign = false): string {
   const absAmount = Math.abs(amount);
   const sign = showSign && amount !== 0 ? (amount > 0 ? '+' : '-') : (amount < 0 ? '-' : '');
-  return `${sign}${symbol} ${absAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const hasFraction = Math.abs(absAmount % 1) > 0;
+  return `${sign}${symbol} ${absAmount.toLocaleString(undefined, {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: hasFraction ? 2 : 2,
+  })}`;
 }

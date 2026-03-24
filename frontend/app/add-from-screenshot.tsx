@@ -59,6 +59,53 @@ interface ExtractionResult {
 
 type ScreenState = 'upload' | 'analyzing' | 'review';
 
+function toField(value: string | number | null, confidence: 'high' | 'medium' | 'low' = 'medium'): ExtractedField {
+  return { value, confidence };
+}
+
+function parsePriceFromText(raw: string): number | null {
+  const matches = raw.match(/(?:€|\$|£)\s*\d{1,4}(?:[.,]\d{1,2})?/g);
+  if (!matches || matches.length === 0) return null;
+  const first = matches[0].replace(/[^\d.,]/g, '').replace(',', '.');
+  const price = parseFloat(first);
+  return Number.isFinite(price) ? price : null;
+}
+
+function detectPlatformFromRawText(raw: string): string | null {
+  const text = raw.toLowerCase();
+  if (text.includes('vinted')) return 'Vinted';
+  if (text.includes('depop')) return 'Depop';
+  if (text.includes('ebay')) return 'eBay';
+  if (text.includes('poshmark')) return 'Poshmark';
+  if (text.includes('vestiaire')) return 'Vestiaire';
+  if (text.includes('etsy')) return 'Etsy';
+  return null;
+}
+
+function fallbackExtractionFromRawText(raw: string): ExtractionResult {
+  const lines = raw
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  const candidateTitle =
+    lines.find(l => l.length >= 8 && l.length <= 90 && !/[€$£]/.test(l) && !/verkauf|beschreibung|shipping|condition/i.test(l)) || '';
+
+  const brandMatch = candidateTitle.match(/^([A-Za-z&.'\-\s]{2,30})/);
+  const brand = brandMatch ? brandMatch[1].trim() : '';
+  const price = parsePriceFromText(raw);
+
+  return {
+    title: toField(candidateTitle, candidateTitle ? 'medium' : 'low'),
+    brand: toField(brand, brand ? 'low' : 'low'),
+    listed_price: toField(price, price !== null ? 'medium' : 'low'),
+    size: toField('', 'low'),
+    condition: toField('', 'low'),
+    category: toField('', 'low'),
+    color: toField('', 'low'),
+  };
+}
+
 // ─── Confidence Badge ───
 function ConfidenceBadge({ level }: { level: string }) {
   const config = {
@@ -224,8 +271,8 @@ export default function AddFromScreenshotScreen() {
         // Store the original file URI for cropping (needed on iOS)
         setOriginalFileUri(asset.uri);
         
-        // Show crop option first before analysis
-        setShowCropper(true);
+        // Analyze full screenshot first for OCR extraction.
+        await analyzeImages([base64Uri]);
       }
     } catch (e) {
       console.error('Image picker error:', e);
@@ -237,17 +284,11 @@ export default function AddFromScreenshotScreen() {
   const handleCrop = async (croppedUri: string) => {
     setCroppedImage(croppedUri);
     setShowCropper(false);
-    
-    // Now analyze the cropped image
-    await analyzeImages([croppedUri]);
   };
   
   // Skip crop and analyze original
   const skipCropAndAnalyze = () => {
     setShowCropper(false);
-    if (selectedImages[0]) {
-      analyzeImages(selectedImages);
-    }
   };
 
   // Analyze images
@@ -259,12 +300,47 @@ export default function AddFromScreenshotScreen() {
       const response = await api.analyzeScreenshot(images);
       
       if (response.success) {
-        setExtractedData(response.extracted_data);
-        setDetectedPlatform(response.detected_platform);
+        const hasStructuredValues = !!Object.values(response.extracted_data || {}).some((field: any) => {
+          const value = field?.value;
+          return value !== null && value !== undefined && String(value).trim() !== '';
+        });
+        const fallbackData = response.raw_text ? fallbackExtractionFromRawText(response.raw_text) : null;
+        const data = {
+          title: {
+            value: response.extracted_data?.title?.value || fallbackData?.title?.value || '',
+            confidence: response.extracted_data?.title?.confidence || fallbackData?.title?.confidence || 'low',
+          },
+          brand: {
+            value: response.extracted_data?.brand?.value || fallbackData?.brand?.value || '',
+            confidence: response.extracted_data?.brand?.confidence || fallbackData?.brand?.confidence || 'low',
+          },
+          listed_price: {
+            value: response.extracted_data?.listed_price?.value ?? fallbackData?.listed_price?.value ?? null,
+            confidence: response.extracted_data?.listed_price?.confidence || fallbackData?.listed_price?.confidence || 'low',
+          },
+          size: {
+            value: response.extracted_data?.size?.value || '',
+            confidence: response.extracted_data?.size?.confidence || 'low',
+          },
+          condition: {
+            value: response.extracted_data?.condition?.value || '',
+            confidence: response.extracted_data?.condition?.confidence || 'low',
+          },
+          category: {
+            value: response.extracted_data?.category?.value || '',
+            confidence: response.extracted_data?.category?.confidence || 'low',
+          },
+          color: {
+            value: response.extracted_data?.color?.value || '',
+            confidence: response.extracted_data?.color?.confidence || 'low',
+          },
+        };
+
+        setExtractedData(data as ExtractionResult);
+        setDetectedPlatform(response.detected_platform || detectPlatformFromRawText(response.raw_text || ''));
         setRawText(response.raw_text || '');
         
         // Populate editable fields
-        const data = response.extracted_data;
         setTitle(data.title?.value || '');
         setBrand(data.brand?.value || '');
         setListedPrice(data.listed_price?.value?.toString() || '');
@@ -275,24 +351,30 @@ export default function AddFromScreenshotScreen() {
         
         // Store confidences
         setConfidences({
-          title: data.title?.confidence || 'low',
-          brand: data.brand?.confidence || 'low',
-          listed_price: data.listed_price?.confidence || 'low',
-          size: data.size?.confidence || 'low',
-          condition: data.condition?.confidence || 'low',
-          category: data.category?.confidence || 'low',
-          color: data.color?.confidence || 'low',
+          title: data.title.confidence || 'low',
+          brand: data.brand.confidence || 'low',
+          listed_price: data.listed_price.confidence || 'low',
+          size: data.size.confidence || 'low',
+          condition: data.condition.confidence || 'low',
+          category: data.category.confidence || 'low',
+          color: data.color.confidence || 'low',
         });
         
         setScreenState('review');
+        if (!hasStructuredValues) {
+          setError('OCR was partial. We prefilled what we could from visible text.');
+        }
       } else {
-        setError('Failed to extract data from screenshot');
-        setScreenState('upload');
+        // Keep user in review mode even if extraction fails, so manual completion still works.
+        setError('Auto-extraction failed. Please fill the details manually.');
+        setScreenState('review');
       }
     } catch (e) {
       console.error('Analysis error:', e);
-      setError('Failed to analyze screenshot. Please try again.');
-      setScreenState('upload');
+      const message = e instanceof Error ? e.message : 'Failed to analyze screenshot. Please try again.';
+      setError(message);
+      // Fall back to manual review mode with the selected image.
+      setScreenState('review');
     }
   };
 
@@ -464,12 +546,10 @@ export default function AddFromScreenshotScreen() {
               </View>
             )}
             <View style={styles.imageActions}>
-              {!croppedImage && (
-                <TouchableOpacity style={styles.cropImageBtn} onPress={() => setShowCropper(true)}>
-                  <Feather name="crop" size={14} color={colors.textInverse} />
-                  <Text style={styles.cropImageText}>Crop</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity style={styles.cropImageBtn} onPress={() => setShowCropper(true)}>
+                <Feather name="crop" size={14} color={colors.textInverse} />
+                <Text style={styles.cropImageText}>{croppedImage ? 'Re-crop' : 'Crop'}</Text>
+              </TouchableOpacity>
               {croppedImage && (
                 <View style={styles.croppedBadge}>
                   <Feather name="check" size={12} color={colors.success} />
@@ -672,6 +752,7 @@ export default function AddFromScreenshotScreen() {
             visible={showCropper}
             imageUri={originalFileUri || selectedImages[0]}
             onClose={() => setShowCropper(false)}
+            onSkip={skipCropAndAnalyze}
             onCrop={handleCrop}
           />
         )}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../src/ThemeContext';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -189,6 +189,81 @@ export default function ItemDetailScreen() {
   const handleSoldConfirm = async (soldPrice: number) => {
     await updateStatus('sold', { sold_price: soldPrice, date_sold: new Date().toISOString() });
     setToast({ visible: true, message: `Sold for ${formatAmount(soldPrice)}!`, type: 'success' });
+  };
+
+  const handleDuplicate = async () => {
+    if (!item) return;
+    try {
+      const duplicatePayload = {
+        title: `${item.title} (Copy)`,
+        brand: item.brand || '',
+        category: item.category || '',
+        size: item.size || '',
+        condition: item.condition || '',
+        source: item.source || '',
+        purchase_price: item.purchase_price || 0,
+        shipping_to_acquire: item.shipping_to_acquire || 0,
+        prep_cost: item.prep_cost || 0,
+        target_list_price: item.target_list_price || 0,
+        sold_price: 0,
+        fees: 0,
+        packaging_cost: item.packaging_cost || 0,
+        shipping_cost: item.shipping_cost || 0,
+        date_acquired: new Date().toISOString(),
+        date_listed: "",
+        date_sold: "",
+        status: "sourced",
+        platforms: item.platforms || [],
+        notes: item.notes || '',
+        photos: item.photos || [],
+        is_draft: item.is_draft || false,
+        tags: item.tags || [],
+        color: item.color || '',
+      };
+      await api.createItem(duplicatePayload);
+      setToast({ visible: true, message: 'Item duplicated', type: 'success' });
+    } catch (e) {
+      setToast({ visible: true, message: 'Failed to duplicate item', type: 'error' });
+    }
+  };
+
+  const handleShare = async () => {
+    if (!item) return;
+    const shareText =
+      `${item.title}\n` +
+      `Brand: ${item.brand || '—'}\n` +
+      `Category: ${item.category || '—'}\n` +
+      `Status: ${(statusConfig[item.status]?.label || item.status || '—')}\n` +
+      `Target: ${formatAmount(item.target_list_price || 0)}\n` +
+      `Profit: ${formatAmount(item.net_profit || 0)} | ROI: ${item.roi || 0}%`;
+    try {
+      await Share.share({ message: shareText });
+    } catch (e) {
+      setToast({ visible: true, message: 'Failed to open share sheet', type: 'error' });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    Alert.alert(
+      'Delete Item',
+      'This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteItem(id);
+              router.back();
+            } catch (e) {
+              setToast({ visible: true, message: 'Failed to delete item', type: 'error' });
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Loading State
@@ -401,11 +476,16 @@ export default function ItemDetailScreen() {
               </>
             )}
             <View style={styles.profitRow}>
-              <Text style={styles.profitLabel}>Net Profit</Text>
+              <Text style={styles.profitLabel}>{item.sold_price > 0 ? 'Net Profit' : 'Projected Net Profit'}</Text>
               <Text style={[styles.profitValue, { color: item.net_profit >= 0 ? colors.success : colors.warning }]}>
                 {formatAmount(item.net_profit)}
               </Text>
             </View>
+            {item.sold_price <= 0 && (
+              <Text style={styles.profitHint}>
+                Projection includes estimated platform fees and default shipping/packaging from Settings.
+              </Text>
+            )}
             <FinancialRow label="ROI" value={`${item.roi}%`} />
             <FinancialRow label="Margin" value={`${item.margin}%`} />
           </View>
@@ -461,8 +541,8 @@ export default function ItemDetailScreen() {
         )}
 
         {/* Secondary Actions */}
-        {!isCompleted && (
-          <View style={styles.secondaryActions}>
+        <View style={styles.secondaryActions}>
+          {!isCompleted && (
             <TouchableOpacity
               testID="action-archive"
               style={[styles.secondaryBtn, { backgroundColor: colors.warningLight }]}
@@ -472,8 +552,35 @@ export default function ItemDetailScreen() {
               <Feather name="archive" size={16} color={colors.warning} />
               <Text style={[styles.secondaryBtnText, { color: colors.warning }]}>Archive</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+          <TouchableOpacity
+            testID="action-duplicate"
+            style={styles.secondaryBtn}
+            onPress={handleDuplicate}
+            activeOpacity={0.6}
+          >
+            <Feather name="copy" size={16} color={colors.textSecondary} />
+            <Text style={styles.secondaryBtnText}>Duplicate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="action-share"
+            style={styles.secondaryBtn}
+            onPress={handleShare}
+            activeOpacity={0.6}
+          >
+            <Feather name="share-2" size={16} color={colors.textSecondary} />
+            <Text style={styles.secondaryBtnText}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="action-delete"
+            style={[styles.secondaryBtn, { backgroundColor: colors.errorLight }]}
+            onPress={handleDelete}
+            activeOpacity={0.6}
+          >
+            <Feather name="trash-2" size={16} color={colors.error} />
+            <Text style={[styles.secondaryBtnText, { color: colors.error }]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <SoldModal
@@ -733,7 +840,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space[2] + 2,
-    borderRadius: radius.full,
+    borderRadius: radius.lg,
     paddingVertical: space[4],
     marginBottom: space[5],
     ...shadows.md,
@@ -856,6 +963,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl + 2,
     letterSpacing: -0.5,
   },
+  profitHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    marginTop: -space[2],
+    marginBottom: space[2],
+    lineHeight: 16,
+  },
 
   // Timeline
   timelineCard: {
@@ -913,11 +1028,12 @@ const styles = StyleSheet.create({
   // Secondary Actions
   secondaryActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: space[2] + 2,
     marginBottom: space[4],
   },
   secondaryBtn: {
-    flex: 1,
+    minWidth: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

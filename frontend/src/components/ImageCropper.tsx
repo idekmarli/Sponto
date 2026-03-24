@@ -26,9 +26,10 @@ interface ImageCropperProps {
   imageUri: string;
   onClose: () => void;
   onCrop: (croppedUri: string) => void;
+  onSkip?: () => void;
 }
 
-export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCropperProps) {
+export function ImageCropper({ visible, imageUri, onClose, onCrop, onSkip }: ImageCropperProps) {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [imageLayout, setImageLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
@@ -51,10 +52,10 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
     if (visible && imageLayout.width > 0) {
       const margin = 20;
       setCropBox({
-        x: margin,
-        y: margin,
-        width: imageLayout.width - margin * 2,
-        height: imageLayout.height - margin * 2,
+        x: imageLayout.x + margin,
+        y: imageLayout.y + margin,
+        width: Math.max(MIN_CROP_SIZE, imageLayout.width - margin * 2),
+        height: Math.max(MIN_CROP_SIZE, imageLayout.height - margin * 2),
       });
     }
   }, [visible, imageLayout]);
@@ -111,8 +112,12 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
       onPanResponderMove: (_, gesture) => {
         const layout = imageLayoutRef.current;
         const start = startCropBox.current;
-        const newX = Math.max(0, Math.min(start.x + gesture.dx, layout.width - start.width));
-        const newY = Math.max(0, Math.min(start.y + gesture.dy, layout.height - start.height));
+        const minX = layout.x;
+        const maxX = layout.x + layout.width - start.width;
+        const minY = layout.y;
+        const maxY = layout.y + layout.height - start.height;
+        const newX = Math.max(minX, Math.min(start.x + gesture.dx, maxX));
+        const newY = Math.max(minY, Math.min(start.y + gesture.dy, maxY));
         setCropBox(prev => ({ ...prev, x: newX, y: newY }));
       },
       onPanResponderRelease: () => {},
@@ -142,27 +147,27 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
             const h = Math.max(MIN_CROP_SIZE, start.height - gesture.dy);
             const x = start.x + start.width - w;
             const y = start.y + start.height - h;
-            if (x >= 0 && y >= 0) newBox = { x, y, width: w, height: h };
+            if (x >= layout.x && y >= layout.y) newBox = { x, y, width: w, height: h };
             break;
           }
           case 'topRight': {
             const w = Math.max(MIN_CROP_SIZE, start.width + gesture.dx);
             const h = Math.max(MIN_CROP_SIZE, start.height - gesture.dy);
             const y = start.y + start.height - h;
-            if (y >= 0 && start.x + w <= layout.width) newBox = { ...start, y, width: w, height: h };
+            if (y >= layout.y && start.x + w <= layout.x + layout.width) newBox = { ...start, y, width: w, height: h };
             break;
           }
           case 'bottomLeft': {
             const w = Math.max(MIN_CROP_SIZE, start.width - gesture.dx);
             const h = Math.max(MIN_CROP_SIZE, start.height + gesture.dy);
             const x = start.x + start.width - w;
-            if (x >= 0 && start.y + h <= layout.height) newBox = { x, y: start.y, width: w, height: h };
+            if (x >= layout.x && start.y + h <= layout.y + layout.height) newBox = { x, y: start.y, width: w, height: h };
             break;
           }
           case 'bottomRight': {
             const w = Math.max(MIN_CROP_SIZE, start.width + gesture.dx);
             const h = Math.max(MIN_CROP_SIZE, start.height + gesture.dy);
-            if (start.x + w <= layout.width && start.y + h <= layout.height) newBox = { ...start, width: w, height: h };
+            if (start.x + w <= layout.x + layout.width && start.y + h <= layout.y + layout.height) newBox = { ...start, width: w, height: h };
             break;
           }
         }
@@ -185,10 +190,12 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
     try {
       const scaleX = originalDimensions.width / imageLayout.width;
       const scaleY = originalDimensions.height / imageLayout.height;
+      const cropXInImage = cropBox.x - imageLayout.x;
+      const cropYInImage = cropBox.y - imageLayout.y;
 
       const cropRegion = {
-        originX: Math.max(0, Math.round(cropBox.x * scaleX)),
-        originY: Math.max(0, Math.round(cropBox.y * scaleY)),
+        originX: Math.max(0, Math.round(cropXInImage * scaleX)),
+        originY: Math.max(0, Math.round(cropYInImage * scaleY)),
         width: Math.min(originalDimensions.width, Math.round(cropBox.width * scaleX)),
         height: Math.min(originalDimensions.height, Math.round(cropBox.height * scaleY)),
       };
@@ -245,10 +252,10 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
           {imageLayout.width > 0 && (
             <>
               {/* Dark overlay outside crop area */}
-              <View style={[styles.overlay, styles.overlayTop, { height: cropBox.y }]} />
-              <View style={[styles.overlay, styles.overlayBottom, { top: cropBox.y + cropBox.height, height: imageLayout.height - cropBox.y - cropBox.height }]} />
-              <View style={[styles.overlay, styles.overlayLeft, { top: cropBox.y, height: cropBox.height, width: cropBox.x }]} />
-              <View style={[styles.overlay, styles.overlayRight, { top: cropBox.y, height: cropBox.height, left: cropBox.x + cropBox.width, width: imageLayout.width - cropBox.x - cropBox.width }]} />
+              <View style={[styles.overlay, styles.overlayTop, { top: imageLayout.y, left: imageLayout.x, width: imageLayout.width, height: Math.max(0, cropBox.y - imageLayout.y) }]} />
+              <View style={[styles.overlay, styles.overlayBottom, { top: cropBox.y + cropBox.height, left: imageLayout.x, width: imageLayout.width, height: Math.max(0, imageLayout.y + imageLayout.height - (cropBox.y + cropBox.height)) }]} />
+              <View style={[styles.overlay, styles.overlayLeft, { top: cropBox.y, left: imageLayout.x, height: cropBox.height, width: Math.max(0, cropBox.x - imageLayout.x) }]} />
+              <View style={[styles.overlay, styles.overlayRight, { top: cropBox.y, left: cropBox.x + cropBox.width, height: cropBox.height, width: Math.max(0, imageLayout.x + imageLayout.width - (cropBox.x + cropBox.width)) }]} />
 
               {/* Crop box */}
               <View
@@ -302,7 +309,7 @@ export function ImageCropper({ visible, imageUri, onClose, onCrop }: ImageCroppe
 
         {/* Actions — uses safe area insets for bottom */}
         <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 20) + space[3] }]}>
-          <TouchableOpacity style={styles.skipBtn} onPress={onClose}>
+          <TouchableOpacity style={styles.skipBtn} onPress={onSkip || onClose}>
             <Text style={styles.skipBtnText}>Skip Cropping</Text>
           </TouchableOpacity>
           <TouchableOpacity
