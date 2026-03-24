@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -27,12 +27,44 @@ import httpx
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.getenv("MONGO_URL")
+db_name = os.getenv("DB_NAME")
+client = None
+db = None
+if mongo_url and db_name:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
+else:
+    logging.warning("Missing MONGO_URL and/or DB_NAME. API routes will return 503 until configured.")
 
 app = FastAPI()
-api_router = APIRouter(prefix="/api")
+
+async def ensure_db_ready():
+    if db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Database is not configured. Set MONGO_URL and DB_NAME."
+        )
+
+api_router = APIRouter(prefix="/api", dependencies=[Depends(ensure_db_ready)])
+
+@app.get("/health")
+async def health():
+    if db is None:
+        return {
+            "status": "degraded",
+            "database": "not_configured",
+            "missing_env": [k for k in ["MONGO_URL", "DB_NAME"] if not os.getenv(k)],
+        }
+    try:
+        await db.command("ping")
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "degraded", "database": "unreachable", "error": str(e)}
+
+@app.get("/api/health")
+async def api_health():
+    return await health()
 
 # ─── Models ───
 
@@ -1522,4 +1554,5 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client is not None:
+        client.close()
