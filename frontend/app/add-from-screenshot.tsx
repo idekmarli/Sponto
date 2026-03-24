@@ -366,7 +366,11 @@ export default function AddFromScreenshotScreen() {
         }
       } else {
         // Keep user in review mode even if extraction fails, so manual completion still works.
-        setError('Auto-extraction failed. Please fill the details manually.');
+        const backendError =
+          (response as any)?.error ||
+          (response as any)?.detail ||
+          'Auto-extraction failed. Please fill the details manually.';
+        setError(backendError);
         setScreenState('review');
       }
     } catch (e) {

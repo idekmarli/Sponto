@@ -1213,10 +1213,14 @@ def extract_color(text: str) -> tuple[Optional[str], str]:
 async def analyze_screenshot_ai(image_base64: str) -> Dict[str, Any]:
     """Analyze a screenshot using Claude Vision API to extract listing information"""
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    anthropic_model = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
 
     if not anthropic_key:
         logging.error("ANTHROPIC_API_KEY not set — falling back to regex extraction")
-        return analyze_screenshot_regex(image_base64)
+        fallback = analyze_screenshot_regex(image_base64)
+        if not fallback.get("success"):
+            fallback["error"] = fallback.get("error") or "ANTHROPIC_API_KEY not set and regex fallback unavailable"
+        return fallback
 
     try:
         # Clean base64 string
@@ -1262,7 +1266,7 @@ Rules:
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-20250514",
+                    "model": anthropic_model,
                     "max_tokens": 1024,
                     "messages": [{
                         "role": "user",
@@ -1283,7 +1287,10 @@ Rules:
 
         if resp.status_code != 200:
             logging.error(f"Claude API error {resp.status_code}: {resp.text}")
-            return analyze_screenshot_regex(image_base64)
+            fallback = analyze_screenshot_regex(image_base64)
+            if not fallback.get("success"):
+                fallback["error"] = f"Claude API error {resp.status_code}: {resp.text[:200]}"
+            return fallback
 
         result = resp.json()
         text_content = result["content"][0]["text"]
@@ -1361,10 +1368,16 @@ Rules:
 
     except json.JSONDecodeError as e:
         logging.error(f"Failed to parse Claude response: {e}")
-        return analyze_screenshot_regex(image_base64)
+        fallback = analyze_screenshot_regex(image_base64)
+        if not fallback.get("success"):
+            fallback["error"] = f"Failed to parse Claude response: {str(e)}"
+        return fallback
     except Exception as e:
         logging.error(f"AI Analysis Error: {str(e)}")
-        return analyze_screenshot_regex(image_base64)
+        fallback = analyze_screenshot_regex(image_base64)
+        if not fallback.get("success"):
+            fallback["error"] = f"AI Analysis Error: {str(e)}"
+        return fallback
 
 
 def analyze_screenshot_regex(image_base64: str) -> Dict[str, Any]:
@@ -1433,6 +1446,7 @@ async def analyze_screenshot(req: ScreenshotAnalysisRequest):
     all_text = []
     combined_data = {}
     detected_platforms = []
+    errors = []
     
     for idx, image_b64 in enumerate(req.images):
         result = await analyze_screenshot_ai(image_b64)
@@ -1451,6 +1465,9 @@ async def analyze_screenshot(req: ScreenshotAnalysisRequest):
                     combined_data[field] = data
                 elif data.get("value") and not combined_data[field].get("value"):
                     combined_data[field] = data
+        else:
+            err = result.get("error") or "Unknown OCR failure"
+            errors.append(f"image_{idx + 1}: {err}")
     
     # Determine primary platform
     primary_platform = detected_platforms[0] if detected_platforms else None
@@ -1462,6 +1479,7 @@ async def analyze_screenshot(req: ScreenshotAnalysisRequest):
             "extracted_data": {},
             "raw_text": "",
             "detected_platform": None,
+            "error": "; ".join(errors) if errors else "No text could be extracted from screenshot(s)",
         }
 
     return {
