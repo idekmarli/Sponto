@@ -106,6 +106,11 @@ function fallbackExtractionFromRawText(raw: string): ExtractionResult {
   };
 }
 
+function isLikelyNoOcrBackendError(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes('image analysis unavailable') || m.includes('tesseract') || m.includes('image processing not available');
+}
+
 // ─── Confidence Badge ───
 function ConfidenceBadge({ level }: { level: string }) {
   const config = {
@@ -370,7 +375,11 @@ export default function AddFromScreenshotScreen() {
           (response as any)?.error ||
           (response as any)?.detail ||
           'Auto-extraction failed. Please fill the details manually.';
-        setError(backendError);
+        setError(
+          isLikelyNoOcrBackendError(backendError)
+            ? 'OCR engine is unavailable on backend right now. You can still crop image and fill fields manually.'
+            : backendError
+        );
         setScreenState('review');
       }
     } catch (e) {

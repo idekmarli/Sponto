@@ -27,6 +27,12 @@ import httpx
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+def env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
 mongo_url = os.getenv("MONGO_URL")
 db_name = os.getenv("DB_NAME")
 client = None
@@ -1212,6 +1218,10 @@ def extract_color(text: str) -> tuple[Optional[str], str]:
 
 async def analyze_screenshot_ai(image_base64: str) -> Dict[str, Any]:
     """Analyze a screenshot using Claude Vision API to extract listing information"""
+    # Cost-safe mode: disable paid AI OCR by default unless explicitly enabled.
+    if not env_bool("ENABLE_AI_OCR", default=False):
+        return analyze_screenshot_regex(image_base64)
+
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     anthropic_model = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
 
