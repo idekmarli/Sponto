@@ -239,19 +239,25 @@ export default function InsightsScreen() {
             </View>
           )}
         </View>
-        <StatCard
-          label="Avg Days to Sell"
-          value={`${data.avg_days_to_sell}`}
-        />
-        <StatCard
-          label="Dead Stock"
-          value={`${data.dead_stock_percentage}%`}
-          variant={data.dead_stock_percentage > 20 ? 'warning' : 'default'}
-        />
-        <StatCard
-          label="Stale Capital"
-          value={formatAmountCompact(data.capital_in_stale)}
-        />
+        <View style={styles.metricCardWrap}>
+          <StatCard
+            label="Avg Days to Sell"
+            value={`${data.avg_days_to_sell}`}
+          />
+        </View>
+        <View style={styles.metricCardWrap}>
+          <StatCard
+            label="Dead Stock"
+            value={`${data.dead_stock_percentage}%`}
+            variant={data.dead_stock_percentage > 20 ? 'warning' : 'default'}
+          />
+        </View>
+        <View style={styles.metricCardWrap}>
+          <StatCard
+            label="Stale Capital"
+            value={formatAmountCompact(data.capital_in_stale)}
+          />
+        </View>
       </View>
 
       {/* Monthly Revenue */}
@@ -369,12 +375,13 @@ const chartStyles = StyleSheet.create({
   },
   col: {
     flex: 1,
+    minWidth: 54,
     alignItems: 'center',
     gap: space[2],
   },
   value: {
     fontFamily: fontFamily.mono,
-    fontSize: fontSize.xs,
+    fontSize: 10,
     color: colors.textTertiary,
   },
   barArea: {
@@ -387,7 +394,7 @@ const chartStyles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.mono,
-    fontSize: fontSize.xs,
+    fontSize: 10,
     color: colors.textTertiary,
     letterSpacing: 0.3,
   },
@@ -432,13 +439,13 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    marginBottom: space[5],
+    marginBottom: space[6],
   },
   title: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize['3xl'],
+    fontSize: fontSize['2xl'],
     color: colors.textPrimary,
-    letterSpacing: -0.8,
+    letterSpacing: -0.4,
     marginBottom: space[1],
   },
   subtitle: {
@@ -451,7 +458,7 @@ const styles = StyleSheet.create({
   exportSection: {
     flexDirection: 'row',
     gap: space[3],
-    marginBottom: space[5],
+    marginBottom: space[6],
   },
   exportCard: {
     flex: 1,
@@ -484,11 +491,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: space[3],
-    marginBottom: space[8],
+    marginBottom: space[6],
   },
   metricCardWrap: {
-    flex: 1,
-    minWidth: 100,
+    width: '48%',
     position: 'relative',
   },
   excellentBadge: {
@@ -512,11 +518,11 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    marginBottom: space[8],
+    marginBottom: space[6],
   },
   sectionTitle: {
     fontFamily: fontFamily.bold,
-    fontSize: fontSize.lg,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
     letterSpacing: -0.2,
     marginBottom: space[3] + 2,
